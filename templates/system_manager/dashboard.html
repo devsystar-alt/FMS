@@ -1,0 +1,1950 @@
+{% extends "layout.html" %}
+
+{% block title %}لوحة تحكم مسؤول النظام{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- رأس الصفحة -->
+    <div class="dashboard-header">
+        <h1><i class="fas fa-cogs"></i> لوحة تحكم مسؤول النظام</h1>
+        <p>مرحباً {{ session.user_name }} | آخر دخول: {{ session.get('last_login', 'الآن') }}</p>
+        <div class="header-actions">
+            <button class="btn btn-secondary" onclick="refreshDashboard()">
+                <i class="fas fa-sync-alt"></i> تحديث
+            </button>
+            <button class="btn btn-primary" onclick="exportData()">
+                <i class="fas fa-download"></i> تصدير البيانات
+            </button>
+        </div>
+    </div>
+
+    <!-- إحصائيات اليوم -->
+    <div class="section-header">
+        <h2><i class="fas fa-calendar-day"></i> إحصائيات اليوم ({{ today_date }})</h2>
+    </div>
+    
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-gas-pump"></i>
+            </div>
+            <div class="stat-number">{{ today_stats.total_operations }}</div>
+            <div class="stat-label">إجمالي العمليات اليوم</div>
+            <div class="stat-change positive">
+                <i class="fas fa-arrow-up"></i> {{ today_stats.operations_change }}%
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-file-invoice-dollar"></i>
+            </div>
+            <div class="stat-number">{{ today_stats.dispensed_receipts }}</div>
+            <div class="stat-label">السندات المنصرفة</div>
+            <div class="stat-badge success">
+                {{ "%.1f"|format(today_stats.dispensed_percentage) }}%
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-file-excel"></i>
+            </div>
+            <div class="stat-number">{{ today_stats.non_dispensed_receipts }}</div>
+            <div class="stat-label">السندات غير المنصرفة</div>
+            <div class="stat-badge warning">
+                {{ "%.1f"|format(today_stats.non_dispensed_percentage) }}%
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-fire"></i>
+            </div>
+            <div class="stat-number">{{ "%.2f"|format(today_stats.total_petrol) }}</div>
+            <div class="stat-label">لتر بترول اليوم</div>
+            <div class="progress-bar">
+                <div class="progress petrol" style="width: {{ today_stats.petrol_percentage }}%"></div>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-oil-can"></i>
+            </div>
+            <div class="stat-number">{{ "%.2f"|format(today_stats.total_diesel) }}</div>
+            <div class="stat-label">لتر ديزل اليوم</div>
+            <div class="progress-bar">
+                <div class="progress diesel" style="width: {{ today_stats.diesel_percentage }}%"></div>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="stat-number">{{ today_stats.active_users }}</div>
+            <div class="stat-label">مستخدمين نشطين اليوم</div>
+            <div class="user-list">
+                {% for user in today_active_users %}
+                <span class="user-tag">{{ user.name|truncate(15) }}</span>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- أرقام السندات المنصرفة اليوم -->
+    <div class="section-header">
+        <h2><i class="fas fa-receipt"></i> أرقام السندات المنصرفة اليوم</h2>
+    </div>
+    
+    <div class="receipts-grid">
+        {% for receipt in today_dispensed_receipts %}
+        <div class="receipt-card">
+            <div class="receipt-header">
+                <span class="receipt-number">#{{ receipt.receipt_number }}</span>
+                <span class="receipt-status success">منصرف</span>
+            </div>
+            <div class="receipt-body">
+                <div class="receipt-info">
+                    <div class="info-item">
+                        <i class="fas fa-user"></i>
+                        <span>{{ receipt.driver_name }}</span>
+                    </div>
+                    <div class="info-item">
+                        <i class="fas fa-car"></i>
+                        <span>{{ receipt.vehicle_type }}</span>
+                    </div>
+                    <div class="info-item">
+                        <i class="fas fa-building"></i>
+                        <span>{{ receipt.unit_name }}</span>
+                    </div>
+                    <div class="info-item">
+                        <i class="fas fa-user-tie"></i>
+                        <span>{{ receipt.operation_officer or 'غير محدد' }}</span>
+                    </div>
+                </div>
+                <div class="receipt-fuel">
+                    {% if receipt.petrol_quantity > 0 %}
+                    <div class="fuel-item petrol">
+                        <i class="fas fa-fire"></i>
+                        <span>{{ "%.2f"|format(receipt.petrol_quantity) }} لتر</span>
+                    </div>
+                    {% endif %}
+                    {% if receipt.diesel_quantity > 0 %}
+                    <div class="fuel-item diesel">
+                        <i class="fas fa-oil-can"></i>
+                        <span>{{ "%.2f"|format(receipt.diesel_quantity) }} لتر</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="receipt-footer">
+                <span class="receipt-time">{{ receipt.created_at[:16] }}</span>
+                <button class="btn btn-sm btn-info" onclick="showReceiptDetails({{ receipt.id }})">
+                    <i class="fas fa-eye"></i> تفاصيل
+                </button>
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-receipt fa-3x"></i>
+            <h3>لا توجد سندات منصرفة اليوم</h3>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- فلترة وإدارة العمليات -->
+    <div class="section-header">
+        <h2><i class="fas fa-filter"></i> فلترة وعرض العمليات</h2>
+        <div class="header-tools">
+            <button class="btn btn-secondary" onclick="resetFilters()">
+                <i class="fas fa-redo"></i> إعادة تعيين
+            </button>
+            <button class="btn btn-success" onclick="applyFilters()">
+                <i class="fas fa-search"></i> تطبيق الفلاتر
+            </button>
+        </div>
+    </div>
+    
+    <div class="filters-card">
+        <div class="filters-grid">
+            <!-- فلترة حسب التاريخ -->
+            <div class="filter-group">
+                <label><i class="fas fa-calendar"></i> الفترة الزمنية</label>
+                <select id="timeFilter" class="form-select" onchange="updateDateRange()">
+                    <option value="today">اليوم</option>
+                    <option value="yesterday">أمس</option>
+                    <option value="week">هذا الأسبوع</option>
+                    <option value="month">هذا الشهر</option>
+                    <option value="custom">مخصص</option>
+                </select>
+                <div id="dateRange" class="date-range" style="display: none;">
+                    <input type="date" id="startDate" class="form-control">
+                    <span>إلى</span>
+                    <input type="date" id="endDate" class="form-control">
+                </div>
+            </div>
+            
+            <!-- فلترة حسب حالة السند -->
+            <div class="filter-group">
+                <label><i class="fas fa-file-invoice"></i> حالة السند</label>
+                <div class="status-filters">
+                    {% for status in receipt_statuses %}
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="status" value="{{ status.id }}" 
+                               class="status-checkbox" checked 
+                               onchange="updateStatusFilter(this, '{{ status.color_code }}')">
+                        <span class="checkmark" style="background-color: {{ status.color_code }};"></span>
+                        {{ status.name }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- فلترة حسب نوع الصرف -->
+            <div class="filter-group">
+                <label><i class="fas fa-gas-pump"></i> نوع الصرف</label>
+                <div class="dispense-filters">
+                    {% for dispense in dispense_types %}
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="dispense" value="{{ dispense.id }}" 
+                               class="dispense-checkbox" checked>
+                        <span class="checkmark"></span>
+                        {{ dispense.name }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- فلترة حسب نوع الوقود -->
+            <div class="filter-group">
+                <label><i class="fas fa-oil-can"></i> نوع الوقود</label>
+                <div class="fuel-filters">
+                    <label class="radio-label">
+                        <input type="radio" name="fuel" value="all" checked>
+                        <span class="radiomark"></span>
+                        الكل
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="fuel" value="petrol">
+                        <span class="radiomark petrol"></span>
+                        بترول فقط
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="fuel" value="diesel">
+                        <span class="radiomark diesel"></span>
+                        ديزل فقط
+                    </label>
+                </div>
+            </div>
+            
+            <!-- فلترة حسب المستخدم -->
+            <div class="filter-group">
+                <label><i class="fas fa-user"></i> المدخل</label>
+                <select id="userFilter" class="form-select">
+                    <option value="">الكل</option>
+                    {% for user in all_users %}
+                    <option value="{{ user.id }}">{{ user.name }} ({{ user.role }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- البحث -->
+            <div class="filter-group full-width">
+                <label><i class="fas fa-search"></i> بحث متقدم</label>
+                <div class="search-container">
+                    <input type="text" id="globalSearch" class="form-control" 
+                           placeholder="ابحث في السائق، المركبة، الوحدة، الغرض...">
+                    <button class="btn btn-primary" onclick="performSearch()">
+                        <i class="fas fa-search"></i> بحث
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- جدول العمليات -->
+    <div class="section-header">
+        <h2><i class="fas fa-table"></i> جدول العمليات</h2>
+        <div class="table-info">
+            <span id="tableCount">عرض {{ operations|length }} عملية</span>
+        </div>
+    </div>
+    
+    <div class="table-container">
+        <table class="table" id="operationsTable">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>رقم السند</th>
+                    <th>التاريخ</th>
+                    <th>الوحدة</th>
+                    <th>السائق</th>
+                    <th>المركبة</th>
+                    <th>نوع الوقود</th>
+                    <th>الكمية</th>
+                    <th>حالة السند</th>
+                    <th>نوع الصرف</th>
+                    <th>المدخل</th>
+                    <th>المناوب</th>
+                    <th>آخر تعديل</th>
+                    <th>الإجراءات</th>
+                </tr>
+            </thead>
+            <tbody id="operationsBody">
+                {% for op in operations %}
+                <tr data-id="{{ op.id }}" data-status="{{ op.receipt_status_id }}">
+                    <td>{{ loop.index }}</td>
+                    <td>
+                        <strong>#{{ op.receipt_number }}</strong>
+                    </td>
+                    <td>{{ op.operation_date }}</td>
+                    <td>{{ op.unit_name }}</td>
+                    <td>{{ op.driver_name }}</td>
+                    <td>{{ op.vehicle_type }}</td>
+                    <td>
+                        {% if op.petrol_quantity > 0 and op.diesel_quantity > 0 %}
+                        <span class="badge petrol">بترول</span>
+                        <span class="badge diesel">ديزل</span>
+                        {% elif op.petrol_quantity > 0 %}
+                        <span class="badge petrol">بترول</span>
+                        {% else %}
+                        <span class="badge diesel">ديزل</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if op.petrol_quantity > 0 %}
+                        <div class="quantity petrol">
+                            {{ "%.2f"|format(op.petrol_quantity) }} لتر
+                        </div>
+                        {% endif %}
+                        {% if op.diesel_quantity > 0 %}
+                        <div class="quantity diesel">
+                            {{ "%.2f"|format(op.diesel_quantity) }} لتر
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="status-badge" style="background-color: {{ op.status_color }};">
+                            {{ op.status_name }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="dispense-badge">
+                            {{ op.dispense_name }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="user-info">
+                            <div class="user-name">{{ op.user_name }}</div>
+                            <div class="user-role {{ op.user_role|lower|replace(' ', '-') }}">
+                                {{ op.user_role }}
+                            </div>
+                        </div>
+                    </td>
+                    <td>{{ op.operation_officer or 'غير محدد' }}</td>
+                    <td>
+                        <div class="update-info">
+                            <div class="update-time">{{ op.updated_at[:16] }}</div>
+                            <div class="update-by">
+                                {% if op.last_updated_by %}
+                                بواسطة: {{ op.last_updated_by }}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn btn-sm btn-info" 
+                                    onclick="showOperationDetails({{ op.id }})"
+                                    title="عرض التفاصيل">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="btn btn-sm btn-warning" 
+                                    onclick="editOperation({{ op.id }})"
+                                    title="تعديل">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" 
+                                    onclick="deleteOperation({{ op.id }})"
+                                    title="حذف">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="14" class="text-center">لا توجد عمليات</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <!-- تذييل الجدول -->
+        <div class="table-footer">
+            <div class="pagination">
+                <button class="btn btn-sm" onclick="prevPage()">
+                    <i class="fas fa-chevron-right"></i> السابق
+                </button>
+                <span class="page-info">الصفحة <span id="currentPage">1</span> من <span id="totalPages">1</span></span>
+                <button class="btn btn-sm" onclick="nextPage()">
+                    التالي <i class="fas fa-chevron-left"></i>
+                </button>
+            </div>
+            <div class="table-stats">
+                <span>إجمالي السجلات: <strong id="totalRecords">{{ operations|length }}</strong></span>
+                <select id="pageSize" class="form-select-sm" onchange="changePageSize()">
+                    <option value="10">10 سجلات</option>
+                    <option value="25">25 سجلات</option>
+                    <option value="50">50 سجلات</option>
+                    <option value="100">100 سجلات</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- ملخص التحليل -->
+    <div class="section-header">
+        <h2><i class="fas fa-chart-bar"></i> تحليل العمليات</h2>
+    </div>
+    
+    <div class="analysis-grid">
+        <div class="analysis-card">
+            <h3><i class="fas fa-chart-pie"></i> توزيع العمليات حسب الحالة</h3>
+            <div class="chart-container">
+                <canvas id="statusChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="analysis-card">
+            <h3><i class="fas fa-chart-line"></i> الاستهلاك اليومي</h3>
+            <div class="chart-container">
+                <canvas id="consumptionChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="analysis-card">
+            <h3><i class="fas fa-users"></i> نشاط المستخدمين</h3>
+            <div class="activity-list">
+                {% for log in recent_activity_logs %}
+                <div class="activity-item">
+                    <div class="activity-icon">
+                        {% if log.action == 'إضافة عملية' %}
+                        <i class="fas fa-plus-circle text-success"></i>
+                        {% elif log.action == 'تعديل عملية' %}
+                        <i class="fas fa-edit text-warning"></i>
+                        {% elif log.action == 'حذف عملية' %}
+                        <i class="fas fa-trash text-danger"></i>
+                        {% else %}
+                        <i class="fas fa-info-circle text-info"></i>
+                        {% endif %}
+                    </div>
+                    <div class="activity-content">
+                        <div class="activity-header">
+                            <span class="activity-user">{{ log.user_name }}</span>
+                            <span class="activity-time">{{ log.created_at[:16] }}</span>
+                        </div>
+                        <div class="activity-action">{{ log.action }}</div>
+                        {% if log.details %}
+                        <div class="activity-details">{{ log.details }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- نافذة تفاصيل العملية -->
+<div id="operationModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-info-circle"></i> تفاصيل العملية</h3>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="operationDetails">
+            <!-- سيتم تعبئته بالجافاسكريبت -->
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal()">إغلاق</button>
+            <button class="btn btn-primary" onclick="printDetails()">
+                <i class="fas fa-print"></i> طباعة
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+/* تصميم لوحة تحكم مسؤول النظام */
+.dashboard-container {
+    padding: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.dashboard-header {
+    background: linear-gradient(135deg, #3498db 0%, #2c3e50 100%);
+    color: white;
+    padding: 25px;
+    border-radius: 15px;
+    margin-bottom: 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.dashboard-header h1 {
+    margin: 0;
+    font-size: 1.8rem;
+}
+
+.dashboard-header p {
+    margin: 5px 0 0 0;
+    opacity: 0.9;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 30px 0 20px 0;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #eee;
+}
+
+.section-header h2 {
+    color: #2c3e50;
+    font-size: 1.4rem;
+    margin: 0;
+}
+
+.section-header h2 i {
+    color: #3498db;
+    margin-left: 10px;
+}
+
+.header-tools {
+    display: flex;
+    gap: 10px;
+}
+
+/* بطاقات الإحصائيات */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    transition: transform 0.3s, box-shadow 0.3s;
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, #3498db, #2ecc71);
+}
+
+.stat-icon {
+    font-size: 2.5rem;
+    color: #3498db;
+    margin-bottom: 15px;
+}
+
+.stat-number {
+    font-size: 2.2rem;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 10px;
+}
+
+.stat-label {
+    color: #666;
+    font-size: 0.95rem;
+    margin-bottom: 15px;
+}
+
+.stat-change {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: bold;
+}
+
+.stat-change.positive {
+    background: rgba(46, 204, 113, 0.1);
+    color: #27ae60;
+}
+
+.stat-change.negative {
+    background: rgba(231, 76, 60, 0.1);
+    color: #e74c3c;
+}
+
+.stat-badge {
+    display: inline-block;
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    color: white;
+}
+
+.stat-badge.success {
+    background: #27ae60;
+}
+
+.stat-badge.warning {
+    background: #f39c12;
+}
+
+.stat-badge.danger {
+    background: #e74c3c;
+}
+
+.progress-bar {
+    height: 8px;
+    background: #eee;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 10px;
+}
+
+.progress {
+    height: 100%;
+    border-radius: 4px;
+}
+
+.progress.petrol {
+    background: linear-gradient(90deg, #e74c3c, #f39c12);
+}
+
+.progress.diesel {
+    background: linear-gradient(90deg, #2c3e50, #34495e);
+}
+
+.user-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 10px;
+}
+
+.user-tag {
+    background: #f8f9fa;
+    padding: 3px 10px;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    color: #555;
+    border: 1px solid #ddd;
+}
+
+/* بطاقات السندات */
+.receipts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.receipt-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+    border: 1px solid #eaeaea;
+    transition: all 0.3s;
+}
+
+.receipt-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.12);
+    border-color: #3498db;
+}
+
+.receipt-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.receipt-number {
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.receipt-status {
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    color: white;
+}
+
+.receipt-status.success {
+    background: #27ae60;
+}
+
+.receipt-status.warning {
+    background: #f39c12;
+}
+
+.receipt-status.danger {
+    background: #e74c3c;
+}
+
+.receipt-body {
+    margin-bottom: 15px;
+}
+
+.receipt-info {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.info-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    color: #555;
+}
+
+.info-item i {
+    color: #3498db;
+    width: 20px;
+}
+
+.receipt-fuel {
+    display: flex;
+    gap: 10px;
+}
+
+.fuel-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 15px;
+    border-radius: 8px;
+    font-weight: bold;
+}
+
+.fuel-item.petrol {
+    background: rgba(231, 76, 60, 0.1);
+    color: #e74c3c;
+}
+
+.fuel-item.diesel {
+    background: rgba(52, 152, 219, 0.1);
+    color: #3498db;
+}
+
+.receipt-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 10px;
+    border-top: 1px solid #eee;
+}
+
+.receipt-time {
+    font-size: 0.85rem;
+    color: #777;
+}
+
+.empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 50px 20px;
+    color: #777;
+}
+
+.empty-state i {
+    margin-bottom: 20px;
+    opacity: 0.5;
+}
+
+.empty-state h3 {
+    margin: 0;
+    font-weight: normal;
+}
+
+/* الفلاتر */
+.filters-card {
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    margin-bottom: 30px;
+}
+
+.filters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.filter-group {
+    margin-bottom: 15px;
+}
+
+.filter-group label {
+    display: block;
+    margin-bottom: 10px;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.filter-group label i {
+    color: #3498db;
+    margin-left: 8px;
+}
+
+.status-filters, .dispense-filters, .fuel-filters {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.checkbox-label, .radio-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.checkbox-label input, .radio-label input {
+    display: none;
+}
+
+.checkmark, .radiomark {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+    margin-left: 8px;
+    position: relative;
+    transition: all 0.3s;
+}
+
+.checkbox-label input:checked + .checkmark {
+    background: #4CAF50;
+    border-color: #4CAF50;
+}
+
+.checkbox-label input:checked + .checkmark::after {
+    content: '✓';
+    position: absolute;
+    color: white;
+    font-size: 14px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.radiomark {
+    border-radius: 50%;
+}
+
+.radio-label input:checked + .radiomark {
+    border-color: #3498db;
+}
+
+.radio-label input:checked + .radiomark::after {
+    content: '';
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: #3498db;
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.radiomark.petrol {
+    border-color: #e74c3c;
+}
+
+.radiomark.petrol::after {
+    background: #e74c3c;
+}
+
+.radiomark.diesel {
+    border-color: #2c3e50;
+}
+
+.radiomark.diesel::after {
+    background: #2c3e50;
+}
+
+.date-range {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.date-range span {
+    color: #666;
+}
+
+.search-container {
+    display: flex;
+    gap: 10px;
+}
+
+.full-width {
+    grid-column: 1 / -1;
+}
+
+/* الجدول */
+.table-container {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    margin-bottom: 30px;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th {
+    background: #f8f9fa;
+    padding: 15px;
+    text-align: right;
+    font-weight: bold;
+    color: #2c3e50;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.table td {
+    padding: 12px 15px;
+    border-bottom: 1px solid #eee;
+    vertical-align: middle;
+}
+
+.table tr:hover {
+    background: #f8f9fa;
+}
+
+.table tr:last-child td {
+    border-bottom: none;
+}
+
+.badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    margin: 2px;
+}
+
+.badge.petrol {
+    background: rgba(231, 76, 60, 0.1);
+    color: #e74c3c;
+    border: 1px solid rgba(231, 76, 60, 0.3);
+}
+
+.badge.diesel {
+    background: rgba(52, 152, 219, 0.1);
+    color: #3498db;
+    border: 1px solid rgba(52, 152, 219, 0.3);
+}
+
+.quantity {
+    font-size: 0.9rem;
+    font-weight: bold;
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin: 2px 0;
+}
+
+.quantity.petrol {
+    background: rgba(231, 76, 60, 0.1);
+    color: #e74c3c;
+}
+
+.quantity.diesel {
+    background: rgba(52, 152, 219, 0.1);
+    color: #3498db;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 5px 15px;
+    border-radius: 20px;
+    color: white;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+.dispense-badge {
+    display: inline-block;
+    padding: 5px 12px;
+    background: #f8f9fa;
+    border-radius: 15px;
+    font-size: 0.85rem;
+    color: #555;
+    border: 1px solid #dee2e6;
+}
+
+.user-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.user-name {
+    font-weight: bold;
+    color: #2c3e50;
+    font-size: 0.9rem;
+}
+
+.user-role {
+    font-size: 0.8rem;
+    color: #777;
+    margin-top: 2px;
+}
+
+.user-role.مدير-النظام {
+    color: #f39c12;
+}
+
+.user-role.مسؤول-النظام {
+    color: #3498db;
+}
+
+.user-role.المناوب-بالعمليات {
+    color: #27ae60;
+}
+
+.user-role.المناوب-بالمحروقات {
+    color: #9b59b6;
+}
+
+.update-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.update-time {
+    font-size: 0.9rem;
+    color: #2c3e50;
+}
+
+.update-by {
+    font-size: 0.8rem;
+    color: #777;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 5px;
+}
+
+.action-buttons .btn-sm {
+    padding: 5px 10px;
+    font-size: 0.9rem;
+}
+
+.table-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+}
+
+.pagination {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.page-info {
+    color: #555;
+}
+
+.table-stats {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.form-select-sm {
+    padding: 5px 10px;
+    font-size: 0.9rem;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+/* التحليل */
+.analysis-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.analysis-card {
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.analysis-card h3 {
+    color: #2c3e50;
+    margin-bottom: 20px;
+    font-size: 1.2rem;
+}
+
+.analysis-card h3 i {
+    color: #3498db;
+    margin-left: 10px;
+}
+
+.chart-container {
+    height: 250px;
+    position: relative;
+}
+
+/* المودال */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 15px;
+    width: 90%;
+    max-width: 800px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    animation: modalSlide 0.3s ease-out;
+}
+
+@keyframes modalSlide {
+    from {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #2c3e50;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #777;
+}
+
+.modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.modal-footer {
+    padding: 20px;
+    border-top: 1px solid #eee;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* تصميم متجاوب */
+@media (max-width: 1200px) {
+    .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+}
+
+@media (max-width: 992px) {
+    .dashboard-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+    
+    .header-actions {
+        align-self: flex-end;
+    }
+    
+    .receipts-grid {
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboard-container {
+        padding: 10px;
+    }
+    
+    .table {
+        display: block;
+        overflow-x: auto;
+    }
+    
+    .analysis-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .modal-content {
+        width: 95%;
+        margin: 10px;
+    }
+}
+
+@media (max-width: 576px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .receipts-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .filters-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .table-footer {
+        flex-direction: column;
+        gap: 15px;
+        align-items: flex-start;
+    }
+}
+</style>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+// بيانات JavaScript للوحة التحكم
+let currentPage = 1;
+let pageSize = 10;
+let totalPages = 1;
+let allOperations = [];
+
+// تهيئة عند تحميل الصفحة
+document.addEventListener('DOMContentLoaded', function() {
+    // تحميل البيانات
+    loadDashboardData();
+    
+    // تهيئة الرسوم البيانية
+    initCharts();
+    
+    // إعداد جدول الصفحات
+    setupTablePagination();
+    
+    // تحديث وقت الخادم
+    updateServerTime();
+    
+    // تحديث عدد السجلات
+    updateTableCount();
+});
+
+// تحميل بيانات لوحة التحكم
+async function loadDashboardData() {
+    try {
+        const response = await fetch('/api/system-manager/stats');
+        const data = await response.json();
+        
+        if (data.success) {
+            // تحديث الإحصائيات
+            updateStats(data.stats);
+            
+            // تخزين العمليات
+            allOperations = data.operations || [];
+            
+            // تحديث الجدول
+            renderOperationsTable();
+            
+            // تحديث الرسوم البيانية
+            updateCharts(data.charts);
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل البيانات:', error);
+        showError('تعذر تحميل البيانات. يرجى تحديث الصفحة.');
+    }
+}
+
+// تحديث الإحصائيات
+function updateStats(stats) {
+    // يمكنك هنا تحديث عناصر DOM بالإحصائيات
+    console.log('الإحصائيات:', stats);
+}
+
+// تهيئة الرسوم البيانية
+function initCharts() {
+    // مخطط توزيع الحالات
+    const statusCtx = document.getElementById('statusChart').getContext('2d');
+    window.statusChart = new Chart(statusCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['منصرف', 'غير منصرف', 'معلق'],
+            datasets: [{
+                data: [0, 0, 0],
+                backgroundColor: ['#4CAF50', '#F44336', '#FF9800'],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    rtl: true
+                }
+            }
+        }
+    });
+    
+    // مخطط الاستهلاك
+    const consumptionCtx = document.getElementById('consumptionChart').getContext('2d');
+    window.consumptionChart = new Chart(consumptionCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: 'بترول',
+                    data: [],
+                    borderColor: '#e74c3c',
+                    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                },
+                {
+                    label: 'ديزل',
+                    data: [],
+                    borderColor: '#3498db',
+                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'الكمية (لتر)'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    rtl: true
+                }
+            }
+        }
+    });
+}
+
+// تحديث الرسوم البيانية
+function updateCharts(chartData) {
+    if (chartData && statusChart && consumptionChart) {
+        // تحديث مخطط الحالات
+        statusChart.data.datasets[0].data = chartData.statusData;
+        statusChart.update();
+        
+        // تحديث مخطط الاستهلاك
+        consumptionChart.data.labels = chartData.dailyLabels;
+        consumptionChart.data.datasets[0].data = chartData.dailyPetrol;
+        consumptionChart.data.datasets[1].data = chartData.dailyDiesel;
+        consumptionChart.update();
+    }
+}
+
+// إعداد جدول الصفحات
+function setupTablePagination() {
+    const pageSizeSelect = document.getElementById('pageSize');
+    if (pageSizeSelect) {
+        pageSizeSelect.value = pageSize;
+    }
+}
+
+// تحديث عدد السجلات
+function updateTableCount() {
+    const count = allOperations.length;
+    document.getElementById('tableCount').textContent = `عرض ${count} عملية`;
+    document.getElementById('totalRecords').textContent = count;
+    
+    // حساب عدد الصفحات
+    totalPages = Math.ceil(count / pageSize);
+    document.getElementById('totalPages').textContent = totalPages;
+}
+
+// عرض الجدول
+function renderOperationsTable() {
+    const tableBody = document.getElementById('operationsBody');
+    if (!tableBody) return;
+    
+    // تطبيق الفلاتر
+    let filteredOperations = applyFiltersToData(allOperations);
+    
+    // حساب الصفحات
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const pageOperations = filteredOperations.slice(startIndex, endIndex);
+    
+    // تحديث عدد السجلات بعد التصفية
+    document.getElementById('tableCount').textContent = `عرض ${filteredOperations.length} عملية`;
+    document.getElementById('totalRecords').textContent = filteredOperations.length;
+    totalPages = Math.ceil(filteredOperations.length / pageSize);
+    document.getElementById('totalPages').textContent = totalPages;
+    
+    // عرض البيانات
+    tableBody.innerHTML = pageOperations.map((op, index) => `
+        <tr data-id="${op.id}" data-status="${op.receipt_status_id}">
+            <td>${startIndex + index + 1}</td>
+            <td><strong>#${op.receipt_number}</strong></td>
+            <td>${op.operation_date}</td>
+            <td>${op.unit_name}</td>
+            <td>${op.driver_name}</td>
+            <td>${op.vehicle_type}</td>
+            <td>
+                ${op.petrol_quantity > 0 && op.diesel_quantity > 0 ? 
+                    '<span class="badge petrol">بترول</span><span class="badge diesel">ديزل</span>' : 
+                    op.petrol_quantity > 0 ? 
+                    '<span class="badge petrol">بترول</span>' : 
+                    '<span class="badge diesel">ديزل</span>'
+                }
+            </td>
+            <td>
+                ${op.petrol_quantity > 0 ? 
+                    `<div class="quantity petrol">${parseFloat(op.petrol_quantity).toFixed(2)} لتر</div>` : ''}
+                ${op.diesel_quantity > 0 ? 
+                    `<div class="quantity diesel">${parseFloat(op.diesel_quantity).toFixed(2)} لتر</div>` : ''}
+            </td>
+            <td>
+                <span class="status-badge" style="background-color: ${op.status_color}">
+                    ${op.status_name}
+                </span>
+            </td>
+            <td><span class="dispense-badge">${op.dispense_name}</span></td>
+            <td>
+                <div class="user-info">
+                    <div class="user-name">${op.user_name}</div>
+                    <div class="user-role ${op.user_role.toLowerCase().replace(' ', '-')}">
+                        ${op.user_role}
+                    </div>
+                </div>
+            </td>
+            <td>${op.operation_officer || 'غير محدد'}</td>
+            <td>
+                <div class="update-info">
+                    <div class="update-time">${op.updated_at ? op.updated_at.slice(0, 16) : ''}</div>
+                    ${op.last_updated_by ? 
+                        `<div class="update-by">بواسطة: ${op.last_updated_by}</div>` : ''}
+                </div>
+            </td>
+            <td>
+                <div class="action-buttons">
+                    <button class="btn btn-sm btn-info" onclick="showOperationDetails(${op.id})" title="عرض التفاصيل">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn btn-sm btn-warning" onclick="editOperation(${op.id})" title="تعديل">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteOperation(${op.id})" title="حذف">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+    
+    // إذا لم توجد بيانات
+    if (pageOperations.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="14" class="text-center">
+                    <div class="empty-state">
+                        <i class="fas fa-database fa-2x"></i>
+                        <p>لا توجد عمليات تطابق معايير البحث</p>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }
+    
+    // تحديث رقم الصفحة الحالية
+    document.getElementById('currentPage').textContent = currentPage;
+}
+
+// تطبيق الفلاتر على البيانات
+function applyFiltersToData(operations) {
+    let filtered = [...operations];
+    
+    // فلترة حسب حالة السند
+    const statusCheckboxes = document.querySelectorAll('.status-checkbox:checked');
+    if (statusCheckboxes.length > 0) {
+        const statusValues = Array.from(statusCheckboxes).map(cb => parseInt(cb.value));
+        filtered = filtered.filter(op => statusValues.includes(op.receipt_status_id));
+    }
+    
+    // فلترة حسب نوع الصرف
+    const dispenseCheckboxes = document.querySelectorAll('.dispense-checkbox:checked');
+    if (dispenseCheckboxes.length > 0) {
+        const dispenseValues = Array.from(dispenseCheckboxes).map(cb => parseInt(cb.value));
+        filtered = filtered.filter(op => dispenseValues.includes(op.dispense_type_id));
+    }
+    
+    // فلترة حسب نوع الوقود
+    const fuelRadio = document.querySelector('input[name="fuel"]:checked');
+    if (fuelRadio && fuelRadio.value !== 'all') {
+        if (fuelRadio.value === 'petrol') {
+            filtered = filtered.filter(op => op.petrol_quantity > 0);
+        } else if (fuelRadio.value === 'diesel') {
+            filtered = filtered.filter(op => op.diesel_quantity > 0);
+        }
+    }
+    
+    // فلترة حسب المستخدم
+    const userFilter = document.getElementById('userFilter');
+    if (userFilter && userFilter.value) {
+        filtered = filtered.filter(op => op.user_id == userFilter.value);
+    }
+    
+    // فلترة حسب الفترة الزمنية
+    const timeFilter = document.getElementById('timeFilter');
+    if (timeFilter && timeFilter.value) {
+        const today = new Date();
+        let startDate, endDate;
+        
+        switch (timeFilter.value) {
+            case 'today':
+                startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+                break;
+            case 'yesterday':
+                startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+                endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                break;
+            case 'week':
+                startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7);
+                endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+                break;
+            case 'month':
+                startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                endDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+                break;
+            case 'custom':
+                const startDateInput = document.getElementById('startDate');
+                const endDateInput = document.getElementById('endDate');
+                if (startDateInput.value && endDateInput.value) {
+                    startDate = new Date(startDateInput.value);
+                    endDate = new Date(endDateInput.value);
+                    endDate.setDate(endDate.getDate() + 1); // لتشمل اليوم بأكمله
+                }
+                break;
+        }
+        
+        if (startDate && endDate) {
+            filtered = filtered.filter(op => {
+                const opDate = new Date(op.operation_date);
+                return opDate >= startDate && opDate < endDate;
+            });
+        }
+    }
+    
+    // البحث العام
+    const searchInput = document.getElementById('globalSearch');
+    if (searchInput && searchInput.value.trim()) {
+        const searchTerm = searchInput.value.trim().toLowerCase();
+        filtered = filtered.filter(op => 
+            (op.driver_name && op.driver_name.toLowerCase().includes(searchTerm)) ||
+            (op.vehicle_type && op.vehicle_type.toLowerCase().includes(searchTerm)) ||
+            (op.unit_name && op.unit_name.toLowerCase().includes(searchTerm)) ||
+            (op.purpose && op.purpose.toLowerCase().includes(searchTerm)) ||
+            (op.operation_officer && op.operation_officer.toLowerCase().includes(searchTerm)) ||
+            (op.receipt_number && op.receipt_number.toString().includes(searchTerm))
+        );
+    }
+    
+    return filtered;
+}
+
+// وظائف الصفحات
+function prevPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        renderOperationsTable();
+    }
+}
+
+function nextPage() {
+    if (currentPage < totalPages) {
+        currentPage++;
+        renderOperationsTable();
+    }
+}
+
+function changePageSize() {
+    pageSize = parseInt(document.getElementById('pageSize').value);
+    currentPage = 1;
+    renderOperationsTable();
+}
+
+// تطبيق الفلاتر
+function applyFilters() {
+    currentPage = 1;
+    renderOperationsTable();
+}
+
+// إعادة تعيين الفلاتر
+function resetFilters() {
+    // إعادة تعيين جميع الفلاتر
+    document.querySelectorAll('.status-checkbox').forEach(cb => cb.checked = true);
+    document.querySelectorAll('.dispense-checkbox').forEach(cb => cb.checked = true);
+    document.querySelector('input[name="fuel"][value="all"]').checked = true;
+    document.getElementById('userFilter').value = '';
+    document.getElementById('timeFilter').value = 'today';
+    document.getElementById('globalSearch').value = '';
+    
+    // إخفاء نطاق التاريخ المخصص
+    document.getElementById('dateRange').style.display = 'none';
+    
+    // إعادة التقديم
+    applyFilters();
+}
+
+// تحديث نطاق التاريخ
+function updateDateRange() {
+    const timeFilter = document.getElementById('timeFilter');
+    const dateRange = document.getElementById('dateRange');
+    
+    if (timeFilter.value === 'custom') {
+        dateRange.style.display = 'flex';
+        
+        // تعيين القيم الافتراضية
+        const today = new Date();
+        const weekAgo = new Date();
+        weekAgo.setDate(today.getDate() - 7);
+        
+        document.getElementById('startDate').value = weekAgo.toISOString().split('T')[0];
+        document.getElementById('endDate').value = today.toISOString().split('T')[0];
+    } else {
+        dateRange.style.display = 'none';
+    }
+}
+
+// البحث
+function performSearch() {
+    applyFilters();
+}
+
+// تحديث فلتر الحالة
+function updateStatusFilter(checkbox, color) {
+    const checkmark = checkbox.nextElementSibling;
+    if (checkbox.checked) {
+        checkmark.style.backgroundColor = color;
+    } else {
+        checkmark.style.backgroundColor = '';
+    }
+}
+
+// تحديث لوحة التحكم
+function refreshDashboard() {
+    loadDashboardData();
+    showSuccess('تم تحديث البيانات بنجاح');
+}
+
+// تصدير البيانات
+function exportData() {
+    // يمكن إضافة مكتبة jsPDF أو SheetJS هنا
+    alert('ميزة التصدير قيد التطوير...');
+}
+
+// عرض تفاصيل العملية
+async function showOperationDetails(operationId) {
+    try {
+        const response = await fetch(`/api/operation/${operationId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const operation = data.operation;
+            const modal = document.getElementById('operationModal');
+            const details = document.getElementById('operationDetails');
+            
+            // بناء محتوى التفاصيل
+            details.innerHTML = `
+                <div class="operation-details">
+                    <div class="detail-section">
+                        <h4><i class="fas fa-info-circle"></i> المعلومات الأساسية</h4>
+                        <div class="detail-grid">
+                            <div class="detail-item">
+                                <strong>رقم السند:</strong>
+                                <span>#${operation.receipt_number}</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>التاريخ:</strong>
+                                <span>${operation.operation_date}</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>الوحدة:</strong>
+                                <span>${operation.unit_name}</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>السائق:</strong>
+                                <span>${operation.driver_name}</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>المركبة:</strong>
+                                <span>${operation.vehicle_type}</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>المناوب:</strong>
+                                <span>${operation.operation_officer || 'غير محدد'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h4><i class="fas fa-gas-pump"></i> تفاصيل الصرف</h4>
+                        <div class="detail-grid">
+                            <div class="detail-item">
+                                <strong>نوع الصرف:</strong>
+                                <span>${operation.dispense_name}</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>الغرض:</strong>
+                                <span>${operation.purpose || 'غير محدد'}</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>حالة السند:</strong>
+                                <span class="status-badge" style="background-color: ${operation.status_color}">
+                                    ${operation.status_name}
+                                </span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>كمية البترول:</strong>
+                                <span class="quantity petrol">${parseFloat(operation.petrol_quantity).toFixed(2)} لتر</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>كمية الديزل:</strong>
+                                <span class="quantity diesel">${parseFloat(operation.diesel_quantity).toFixed(2)} لتر</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>ملاحظات:</strong>
+                                <span>${operation.notes || 'لا توجد ملاحظات'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h4><i class="fas fa-history"></i> سجل التعديلات</h4>
+                        <div class="detail-grid">
+                            <div class="detail-item">
+                                <strong>تم الإنشاء بواسطة:</strong>
+                                <span>${operation.user_name} (${operation.user_role})</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>وقت الإنشاء:</strong>
+                                <span>${operation.created_at}</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>آخر تحديث:</strong>
+                                <span>${operation.updated_at || operation.created_at}</span>
+                            </div>
+                            ${operation.last_updated_by ? `
+                            <div class="detail-item">
+                                <strong>آخر معدل:</strong>
+                                <span>${operation.last_updated_by}</span>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h4><i class="fas fa-sticky-note"></i> التتبع</h4>
+                        <div class="timeline">
+                            <div class="timeline-item">
+                                <div class="timeline-icon success">
+                                    <i class="fas fa-plus"></i>
+                                </div>
+                                <div class="timeline-content">
+                                    <h5>تم إضافة العملية</h5>
+                                    <p>بواسطة: ${operation.user_name}</p>
+                                    <p>التاريخ: ${operation.created_at}</p>
+                                </div>
+                            </div>
+                            ${operation.updated_at !== operation.created_at ? `
+                            <div class="timeline-item">
+                                <div class="timeline-icon warning">
+                                    <i class="fas fa-edit"></i>
+                                </div>
+                                <div class="timeline-content">
+                                    <h5>تم تعديل العملية</h5>
+                                    <p>بواسطة: ${operation.last_updated_by || 'غير معروف'}</p>
+                                    <p>التاريخ: ${operation.updated_at}</p>
+                                </div>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // إظهار المودال
+            modal.classList.add('active');
+        }
+    } catch (error) {
+        console.error('خطأ في عرض التفاصيل:', error);
+        showError('تعذر تحميل تفاصيل العملية');
+    }
+}
+
+// تعديل العملية
+function editOperation(operationId) {
+    // يمكن توجيه المستخدم إلى صفحة التعديل
+    window.location.href = `/fuel/edit-operation/${operationId}`;
+}
+
+// حذف العملية
+async function deleteOperation(operationId) {
+    if (confirm('هل أنت متأكد من حذف هذه العملية؟ لا يمكن التراجع عن هذا الإجراء.')) {
+        try {
+            const response = await fetch(`/api/delete-operation/${operationId}`, {
+                method: 'DELETE'
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showSuccess('تم حذف العملية بنجاح');
+                loadDashboardData(); // إعادة تحميل البيانات
+            } else {
+                showError(data.message || 'تعذر حذف العملية');
+            }
+        } catch (error) {
+            console.error('خطأ في الحذف:', error);
+            showError('تعذر حذف العملية');
+        }
+    }
+}
+
+// إغلاق المودال
+function closeModal() {
+    document.getElementById('operationModal').class.classList.remove('active');
+}
+
+// طباعة التفاصيل
+function printDetails() {
+    window.print();
+}
+
+// تحديث وقت الخادم
+function updateServerTime() {
+    const now = new Date();
+    const options = {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    };
+    
+    const timeString = now.toLocaleDateString('ar-SA', options);
+    const timeElements = document.querySelectorAll('.server-time');
+    timeElements.forEach(el => {
+        el.textContent = timeString.replace(/،/g, ' | ');
+    });
+}
+
+// عرض رسالة نجاح
+function showSuccess(message) {
+    alert(message); // يمكن استبداله بمكتبة إشعارات
+}
+
+// عرض رسالة خطأ
+function showError(message) {
+    alert(message); // يمكن استبداله بمكتبة إشعارات
+}
+
+// تحديث كل دقيقة
+setInterval(updateServerTime, 60000);
+setInterval(loadDashboardData, 300000); // تحديث البيانات كل 5 دقائق
+</script>
+{% endblock %}

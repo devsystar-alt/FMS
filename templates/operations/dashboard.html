@@ -1,0 +1,1874 @@
+{% extends "layout.html" %}
+
+{% block title %}لوحة تحكم مناوب العمليات{% endblock %}
+
+{% block content %}
+<div class="operations-dashboard">
+    <!-- رأس الصفحة -->
+    <div class="dashboard-header">
+        <div class="header-info">
+            <h1><i class="fas fa-tasks"></i> لوحة تحكم مناوب العمليات</h1>
+            <p>مرحباً {{ session.user_name }} | الوحدة: {{ current_unit.name if current_unit else 'غير محدد' }}</p>
+            <div class="unit-stats">
+                <span class="stat-item">
+                    <i class="fas fa-gas-pump"></i>
+                    <strong>{{ unit_stats.total_operations }}</strong> عمليات
+                </span>
+                <span class="stat-item">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                    <strong>{{ unit_stats.dispensed_operations }}</strong> منصرف
+                </span>
+                <span class="stat-item">
+                    <i class="fas fa-file-excel"></i>
+                    <strong>{{ unit_stats.non_dispensed_operations }}</strong> غير منصرف
+                </span>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-primary" onclick="showAddOperationForm()">
+                <i class="fas fa-plus-circle"></i> إضافة عملية جديدة
+            </button>
+            <button class="btn btn-secondary" onclick="refreshData()">
+                <i class="fas fa-sync-alt"></i> تحديث
+            </button>
+        </div>
+    </div>
+
+    <!-- إحصائيات سريعة -->
+    <div class="quick-stats">
+        <div class="stat-card">
+            <div class="stat-icon success">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-number">{{ today_stats.today_operations }}</div>
+                <div class="stat-label">عمليات اليوم</div>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon warning">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-number">{{ today_stats.pending_operations }}</div>
+                <div class="stat-label">قيد الانتظار</div>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon petrol">
+                <i class="fas fa-fire"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-number">{{ "%.1f"|format(today_stats.today_petrol) }}</div>
+                <div class="stat-label">لتر بترول اليوم</div>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon diesel">
+                <i class="fas fa-oil-can"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-number">{{ "%.1f"|format(today_stats.today_diesel) }}</div>
+                <div class="stat-label">لتر ديزل اليوم</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- العنصر 1: جميع السجلات المدخلة -->
+    <div class="section-header">
+        <h2><i class="fas fa-list-alt"></i> جميع السجلات المدخلة</h2>
+        <div class="section-tools">
+            <div class="search-box">
+                <input type="text" id="searchAll" placeholder="ابحث في السجلات..." 
+                       class="form-control" onkeyup="searchAllOperations()">
+                <i class="fas fa-search"></i>
+            </div>
+            <select id="filterStatus" class="form-select" onchange="filterAllOperations()">
+                <option value="">جميع الحالات</option>
+                <option value="1">منصرف</option>
+                <option value="2">غير منصرف</option>
+                <option value="3">معلق</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="table-container">
+        <table class="table" id="allOperationsTable">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>رقم السند</th>
+                    <th>التاريخ</th>
+                    <th>السائق</th>
+                    <th>المركبة</th>
+                    <th>نوع الوقود</th>
+                    <th>الكمية</th>
+                    <th>نوع الصرف</th>
+                    <th>حالة السند</th>
+                    <th>تم الصرف بواسطة</th>
+                    <th>وقت الصرف</th>
+                    <th>ملاحظات</th>
+                    <th>الإجراءات</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for op in all_operations %}
+                <tr data-status="{{ op.receipt_status_id }}" data-dispense="{{ op.dispense_type_id }}">
+                    <td>{{ loop.index }}</td>
+                    <td>
+                        <strong class="receipt-number">#{{ op.receipt_number }}</strong>
+                        {% if op.receipt_status_id == 1 %}
+                        <span class="badge success">✓</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ op.operation_date }}</td>
+                    <td>{{ op.driver_name }}</td>
+                    <td>
+                        <span class="vehicle-badge">{{ op.vehicle_type }}</span>
+                    </td>
+                    <td>
+                        {% if op.petrol_quantity > 0 and op.diesel_quantity > 0 %}
+                        <div class="fuel-badges">
+                            <span class="badge petrol">بترول</span>
+                            <span class="badge diesel">ديزل</span>
+                        </div>
+                        {% elif op.petrol_quantity > 0 %}
+                        <span class="badge petrol">بترول</span>
+                        {% else %}
+                        <span class="badge diesel">ديزل</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if op.petrol_quantity > 0 %}
+                        <div class="quantity petrol">{{ "%.2f"|format(op.petrol_quantity) }} لتر</div>
+                        {% endif %}
+                        {% if op.diesel_quantity > 0 %}
+                        <div class="quantity diesel">{{ "%.2f"|format(op.diesel_quantity) }} لتر</div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="dispense-type {{ op.dispense_name|replace(' ', '-') }}">
+                            {{ op.dispense_name }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="status-badge status-{{ op.status_name|replace(' ', '-') }}">
+                            {% if op.receipt_status_id == 1 %}
+                            <i class="fas fa-check-circle"></i>
+                            {% elif op.receipt_status_id == 2 %}
+                            <i class="fas fa-times-circle"></i>
+                            {% else %}
+                            <i class="fas fa-clock"></i>
+                            {% endif %}
+                            {{ op.status_name }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if op.dispensed_by %}
+                        <div class="dispensed-by">
+                            <i class="fas fa-user-check"></i>
+                            {{ op.dispensed_by }}
+                        </div>
+                        {% else %}
+                        <span class="text-muted">لم يصرف بعد</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if op.dispensed_at %}
+                        <div class="dispensed-time">
+                            <i class="fas fa-calendar-alt"></i>
+                            {{ op.dispensed_at[:16] }}
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if op.notes %}
+                        <div class="notes-preview" onclick="showNotes({{ op.id }}, '{{ op.notes }}')">
+                            {{ op.notes[:30] }}{% if op.notes|length > 30 %}...{% endif %}
+                        </div>
+                        {% else %}
+                        <span class="text-muted">لا توجد</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="action-buttons">
+                            {% if op.receipt_status_id != 1 %}
+                            <button class="btn btn-sm btn-warning" 
+                                    onclick="editOperation({{ op.id }})"
+                                    title="تعديل">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            {% endif %}
+                            <button class="btn btn-sm btn-info" 
+                                    onclick="viewOperation({{ op.id }})"
+                                    title="عرض التفاصيل">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" 
+                                    onclick="deleteOperation({{ op.id }})"
+                                    title="حذف"
+                                    {% if op.receipt_status_id == 1 %}disabled{% endif %}>
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="13" class="text-center">
+                        <div class="empty-state">
+                            <i class="fas fa-inbox fa-2x"></i>
+                            <h4>لا توجد عمليات</h4>
+                            <p>ابدأ بإضافة عملية جديدة</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <!-- ترقيم الصفحات -->
+        {% if all_operations|length > 0 %}
+        <div class="table-footer">
+            <div class="pagination">
+                <button class="btn btn-sm" id="prevPage" onclick="prevPage('all')">
+                    <i class="fas fa-chevron-right"></i> السابق
+                </button>
+                <span class="page-info">الصفحة <span id="allCurrentPage">1</span></span>
+                <button class="btn btn-sm" id="nextPage" onclick="nextPage('all')">
+                    التالي <i class="fas fa-chevron-left"></i>
+                </button>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- العنصر 2: السجلات التي تم صرفها -->
+    <div class="section-header">
+        <h2><i class="fas fa-check-circle"></i> السجلات التي تم صرفها</h2>
+        <div class="section-tools">
+            <div class="date-filter">
+                <label>من:</label>
+                <input type="date" id="fromDate" class="form-control" value="{{ today }}">
+                <label>إلى:</label>
+                <input type="date" id="toDate" class="form-control" value="{{ today }}">
+                <button class="btn btn-sm btn-primary" onclick="filterDispensed()">
+                    <i class="fas fa-filter"></i> تصفية
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="table-container">
+        <table class="table" id="dispensedOperationsTable">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>رقم السند</th>
+                    <th>تاريخ الصرف</th>
+                    <th>السائق</th>
+                    <th>المركبة</th>
+                    <th>الكمية المصروفة</th>
+                    <th>تم الصرف بواسطة</th>
+                    <th>ملاحظات الصرف</th>
+                    <th>وقت التعديل</th>
+                    <th>الإجراءات</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for op in dispensed_operations %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>
+                        <strong class="receipt-number">#{{ op.receipt_number }}</strong>
+                        <span class="badge success">تم الصرف</span>
+                    </td>
+                    <td>
+                        <div class="date-info">
+                            <div class="original-date">
+                                <small>التاريخ الأصلي:</small>
+                                {{ op.operation_date }}
+                            </div>
+                            <div class="dispensed-date">
+                                <small>تاريخ الصرف:</small>
+                                {{ op.dispensed_at[:10] }}
+                            </div>
+                        </div>
+                    </td>
+                    <td>{{ op.driver_name }}</td>
+                    <td>
+                        <span class="vehicle-badge">{{ op.vehicle_type }}</span>
+                    </td>
+                    <td>
+                        {% if op.petrol_quantity > 0 %}
+                        <div class="quantity petrol">
+                            <i class="fas fa-fire"></i>
+                            {{ "%.2f"|format(op.petrol_quantity) }} لتر
+                        </div>
+                        {% endif %}
+                        {% if op.diesel_quantity > 0 %}
+                        <div class="quantity diesel">
+                            <i class="fas fa-oil-can"></i>
+                            {{ "%.2f"|format(op.diesel_quantity) }} لتر
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="user-info">
+                            <div class="user-name">
+                                <i class="fas fa-user-check"></i>
+                                {{ op.dispensed_by }}
+                            </div>
+                            <div class="user-role">
+                                <small>مناوب بالمحروقات</small>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        {% if op.dispense_notes %}
+                        <div class="notes-preview" onclick="showDispenseNotes({{ op.id }}, '{{ op.dispense_notes }}')">
+                            {{ op.dispense_notes[:30] }}{% if op.dispense_notes|length > 30 %}...{% endif %}
+                        </div>
+                        {% else %}
+                        <span class="text-muted">لا توجد ملاحظات</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="timestamp">
+                            <i class="fas fa-clock"></i>
+                            {{ op.dispensed_at[:16] }}
+                        </div>
+                    </td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn btn-sm btn-info" onclick="viewDispensedDetails({{ op.id }})">
+                                <i class="fas fa-file-invoice"></i> فاتورة
+                            </button>
+                            <button class="btn btn-sm btn-secondary" onclick="printReceipt({{ op.id }})">
+                                <i class="fas fa-print"></i> طباعة
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="10" class="text-center">
+                        <div class="empty-state">
+                            <i class="fas fa-check-circle fa-2x"></i>
+                            <h4>لا توجد سجلات منصرفة</h4>
+                            <p>العمليات التي يتم صرفها ستظهر هنا</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- نموذج إضافة عملية جديدة -->
+    <div id="addOperationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-plus-circle"></i> إضافة عملية جديدة</h3>
+                <button class="modal-close" onclick="closeAddModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addOperationForm" onsubmit="return submitOperationForm(event)">
+                    <!-- التاريخ ورقم السند -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="operation_date">تاريخ العملية *</label>
+                            <input type="date" id="operation_date" name="operation_date" 
+                                   class="form-control" required 
+                                   value="{{ today }}">
+                        </div>
+                        <div class="form-group">
+                            <label for="receipt_number">رقم السند *</label>
+                            <input type="text" id="receipt_number" name="receipt_number" 
+                                   class="form-control" required 
+                                   placeholder="سيتم توليد رقم تلقائياً" readonly>
+                        </div>
+                    </div>
+
+                    <!-- بيانات السائق والمركبة -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="driver_name">اسم السائق (على السند) *</label>
+                            <input type="text" id="driver_name" name="driver_name" 
+                                   class="form-control" required 
+                                   placeholder="أدخل اسم السائق كما هو على السند">
+                        </div>
+                        <div class="form-group">
+                            <label for="vehicle_type">نوع المركبة *</label>
+                            <select id="vehicle_type" name="vehicle_type" class="form-control" required>
+                                <option value="">اختر نوع المركبة</option>
+                                <option value="همففي">همففي</option>
+                                <option value="لاندكروزر">لاندكروزر</option>
+                                <option value="هايلكس">هايلكس</option>
+                                <option value="باص">باص</option>
+                                <option value="شاحنة">شاحنة</option>
+                                <option value="جيب">جيب</option>
+                                <option value="عربة إسعاف">عربة إسعاف</option>
+                                <option value="عربة اتصالات">عربة اتصالات</option>
+                                <option value="دراجة نارية">دراجة نارية</option>
+                                <option value="أخرى">أخرى</option>
+                            </select>
+                            <input type="text" id="vehicle_other" name="vehicle_other" 
+                                   class="form-control mt-2" 
+                                   placeholder="حدد نوع المركبة الأخرى"
+                                   style="display: none;">
+                        </div>
+                    </div>
+
+                    <!-- نوع الصرف -->
+                    <div class="form-group">
+                        <label for="dispense_type">نوع الصرف *</label>
+                        <select id="dispense_type" name="dispense_type_id" class="form-control" required
+                                onchange="togglePurposeField()">
+                            <option value="">اختر نوع الصرف</option>
+                            {% for type in dispense_types %}
+                            <option value="{{ type.id }}">{{ type.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- الوحدة (للمخصص فقط) -->
+                    <div class="form-group" id="unitField">
+                        <label for="unit_id">الوحدة *</label>
+                        <select id="unit_id" name="unit_id" class="form-control">
+                            <option value="">اختر الوحدة</option>
+                            {% for unit in units %}
+                            <option value="{{ unit.id }}">{{ unit.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- الغرض (للبلاغ والأوامر فقط) -->
+                    <div class="form-group" id="purposeField" style="display: none;">
+                        <label for="purpose">الغرض *</label>
+                        <input type="text" id="purpose" name="purpose" class="form-control"
+                               placeholder="أدخل الغرض من الصرف">
+                    </div>
+
+                    <!-- نوع وكمية الوقود -->
+                    <div class="form-group">
+                        <label>نوع وكمية الوقود *</label>
+                        <div class="fuel-inputs">
+                            <div class="fuel-input">
+                                <label for="petrol_quantity">
+                                    <i class="fas fa-fire petrol-icon"></i> كمية البترول (لتر)
+                                </label>
+                                <input type="number" id="petrol_quantity" name="petrol_quantity" 
+                                       class="form-control" min="0" step="0.01" 
+                                       placeholder="0.00" value="0">
+                            </div>
+                            <div class="fuel-input">
+                                <label for="diesel_quantity">
+                                    <i class="fas fa-oil-can diesel-icon"></i> كمية الديزل (لتر)
+                                </label>
+                                <input type="number" id="diesel_quantity" name="diesel_quantity" 
+                                       class="form-control" min="0" step="0.01" 
+                                       placeholder="0.00" value="0">
+                            </div>
+                        </div>
+                        <div class="form-error" id="fuelError"></div>
+                    </div>
+
+                    <!-- الملاحظات -->
+                    <div class="form-group">
+                        <label for="notes">ملاحظات</label>
+                        <textarea id="notes" name="notes" class="form-control" 
+                                  rows="3" placeholder="أدخل أي ملاحظات إضافية..."></textarea>
+                    </div>
+
+                    <!-- معلومات تلقائية -->
+                    <div class="auto-info">
+                        <p><i class="fas fa-info-circle"></i> سيتم تعبئة الحقول التالية تلقائياً:</p>
+                        <ul>
+                            <li>الشهر: <span id="autoMonth">{{ current_month }}</span></li>
+                            <li>حالة السند: <strong>غير منصرف</strong></li>
+                            <li>المدخل: <strong>{{ session.user_name }}</strong></li>
+                        </ul>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeAddModal()">إلغاء</button>
+                        <button type="submit" class="btn btn-primary" id="submitBtn">
+                            <i class="fas fa-save"></i> حفظ العملية
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- مودال عرض الملاحظات -->
+    <div id="notesModal" class="modal">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3><i class="fas fa-sticky-note"></i> الملاحظات</h3>
+                <button class="modal-close" onclick="closeNotesModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="notesContent"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* تصميم لوحة تحكم مناوب العمليات */
+.operations-dashboard {
+    padding: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.dashboard-header {
+    background: linear-gradient(135deg, #27ae60 0%, #2c3e50 100%);
+    color: white;
+    padding: 25px;
+    border-radius: 15px;
+    margin-bottom: 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.header-info h1 {
+    margin: 0 0 10px 0;
+    font-size: 1.8rem;
+}
+
+.header-info p {
+    margin: 0 0 15px 0;
+    opacity: 0.9;
+}
+
+.unit-stats {
+    display: flex;
+    gap: 20px;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 8px 15px;
+    border-radius: 20px;
+}
+
+.stat-item i {
+    color: #2ecc71;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+}
+
+/* الإحصائيات السريعة */
+.quick-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    transition: transform 0.3s;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+}
+
+.stat-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+}
+
+.stat-icon.success {
+    background: rgba(46, 204, 113, 0.1);
+    color: #27ae60;
+}
+
+.stat-icon.warning {
+    background: rgba(243, 156, 18, 0.1);
+    color: #f39c12;
+}
+
+.stat-icon.petrol {
+    background: rgba(231, 76, 60, 0.1);
+    color: #e74c3c;
+}
+
+.stat-icon.diesel {
+    background: rgba(52, 152, 219, 0.1);
+    color: #3498db;
+}
+
+.stat-content .stat-number {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 5px;
+}
+
+.stat-content .stat-label {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+/* ترويسة الأقسام */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 40px 0 20px 0;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #eee;
+}
+
+.section-header h2 {
+    color: #2c3e50;
+    font-size: 1.4rem;
+    margin: 0;
+}
+
+.section-header h2 i {
+    color: #27ae60;
+    margin-left: 10px;
+}
+
+.section-tools {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.search-box {
+    position: relative;
+    width: 250px;
+}
+
+.search-box input {
+    padding-right: 40px;
+}
+
+.search-box i {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #666;
+}
+
+.date-filter {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.date-filter label {
+    font-weight: bold;
+    color: #555;
+    font-size: 0.9rem;
+}
+
+/* الجداول */
+.table-container {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    margin-bottom: 40px;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th {
+    background: #f8f9fa;
+    padding: 15px;
+    text-align: right;
+    font-weight: bold;
+    color: #2c3e50;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.table td {
+    padding: 12px 15px;
+    border-bottom: 1px solid #eee;
+    vertical-align: middle;
+}
+
+.table tr:hover {
+    background: #f8f9fa;
+}
+
+/* عناصر الجدول */
+.receipt-number {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.vehicle-badge {
+    background: #f8f9fa;
+    padding: 5px 12px;
+    border-radius: 15px;
+    font-size: 0.9rem;
+    color: #555;
+    border: 1px solid #dee2e6;
+}
+
+.fuel-badges {
+    display: flex;
+    gap: 5px;
+}
+
+.badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    margin: 2px;
+}
+
+.badge.success {
+    background: rgba(46, 204, 113, 0.1);
+    color: #27ae60;
+    border: 1px solid rgba(46, 204, 113, 0.3);
+}
+
+.badge.petrol {
+    background: rgba(231, 76, 60, 0.1);
+    color: #e74c3c;
+    border: 1px solid rgba(231, 76, 60, 0.3);
+}
+
+.badge.diesel {
+    background: rgba(52, 152, 219, 0.1);
+    color: #3498db;
+    border: 1px solid rgba(52, 152, 219, 0.3);
+}
+
+.quantity {
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    margin: 2px 0;
+}
+
+.quantity.petrol {
+    background: rgba(231, 76, 60, 0.1);
+    color: #e74c3c;
+}
+
+.quantity.diesel {
+    background: rgba(52, 152, 219, 0.1);
+    color: #3498db;
+}
+
+.dispense-type {
+    display: inline-block;
+    padding: 5px 12px;
+    border-radius: 15px;
+    font-size: 0.85rem;
+    font-weight: bold;
+}
+
+.dispense-type.مخصص {
+    background: rgba(155, 89, 182, 0.1);
+    color: #9b59b6;
+    border: 1px solid rgba(155, 89, 182, 0.3);
+}
+
+.dispense-type.بلاغ {
+    background: rgba(52, 152, 219, 0.1);
+    color: #3498db;
+    border: 1px solid rgba(52, 152, 219, 0.3);
+}
+
+.dispense-type.أوامر {
+    background: rgba(46, 204, 113, 0.1);
+    color: #27ae60;
+    border: 1px solid rgba(46, 204, 113, 0.3);
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 15px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: bold;
+}
+
+.status-منصرف {
+    background: rgba(46, 204, 113, 0.1);
+    color: #27ae60;
+    border: 1px solid rgba(46, 204, 113, 0.3);
+}
+
+.status-غير-منصرف {
+    background: rgba(231, 76, 60, 0.1);
+    color: #e74c3c;
+    border: 1px solid rgba(231, 76, 60, 0.3);
+}
+
+.status-معلق {
+    background: rgba(243, 156, 18, 0.1);
+    color: #f39c12;
+    border: 1px solid rgba(243, 156, 18, 0.3);
+}
+
+.dispensed-by {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #27ae60;
+    font-weight: bold;
+}
+
+.dispensed-time, .timestamp {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.notes-preview {
+    cursor: pointer;
+    color: #3498db;
+    font-size: 0.9rem;
+    padding: 5px;
+    border-radius: 4px;
+    transition: background 0.3s;
+}
+
+.notes-preview:hover {
+    background: #f0f8ff;
+}
+
+.date-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.date-info small {
+    color: #777;
+    font-size: 0.8rem;
+}
+
+.user-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.user-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.user-role small {
+    color: #777;
+    font-size: 0.8rem;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 5px;
+}
+
+.action-buttons .btn-sm {
+    padding: 6px 10px;
+    font-size: 0.9rem;
+}
+
+/* تذييل الجدول */
+.table-footer {
+    padding: 15px;
+    background: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+}
+
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+}
+
+.page-info {
+    color: #555;
+    font-weight: bold;
+}
+
+/* حالة فارغة */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #777;
+}
+
+.empty-state i {
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+.empty-state h4 {
+    margin: 10px 0;
+    font-weight: normal;
+}
+
+.empty-state p {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+/* المودالات */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 15px;
+    width: 100%;
+    max-width: 700px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    animation: modalSlide 0.3s ease-out;
+}
+
+.modal-content.modal-sm {
+    max-width: 500px;
+}
+
+@keyframes modalSlide {
+    from {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #2c3e50;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #777;
+}
+
+.modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+/* نموذج الإضافة */
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #2c3e50;
+    font-size: 0.95rem;
+}
+
+.form-control {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.3s;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #27ae60;
+}
+
+.fuel-inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.fuel-input label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.petrol-icon {
+    color: #e74c3c;
+}
+
+.diesel-icon {
+    color: #3498db;
+}
+
+.form-error {
+    color: #e74c3c;
+    font-size: 0.9rem;
+    margin-top: 5px;
+    min-height: 20px;
+}
+
+.auto-info {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-right: 4px solid #27ae60;
+}
+
+.auto-info p {
+    margin: 0 0 10px 0;
+    color: #2c3e50;
+    font-weight: bold;
+}
+
+.auto-info ul {
+    margin: 0;
+    padding-right: 20px;
+    list-style: none;
+}
+
+.auto-info li {
+    margin-bottom: 5px;
+    color: #555;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}
+
+/* تصميم متجاوب */
+@media (max-width: 1200px) {
+    .form-row, .fuel-inputs {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 992px) {
+    .dashboard-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 20px;
+    }
+    
+    .header-actions {
+        align-self: flex-end;
+    }
+    
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+    
+    .section-tools {
+        width: 100%;
+    }
+    
+    .search-box {
+        width: 100%;
+    }
+}
+
+@media (max-width: 768px) {
+    .operations-dashboard {
+        padding: 10px;
+    }
+    
+    .table {
+        display: block;
+        overflow-x: auto;
+    }
+    
+    .quick-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .unit-stats {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .date-filter {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+@media (max-width: 576px) {
+    .quick-stats {
+        grid-template-columns: 1fr;
+    }
+    
+    .modal-content {
+        margin: 10px;
+    }
+    
+    .form-row, .fuel-inputs {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<script>
+// بيانات الصفحة
+let allOperationsData = {{ all_operations|tojson|safe }};
+let dispensedOperationsData = {{ dispensed_operations|tojson|safe }};
+let currentPageAll = 1;
+let currentPageDispensed = 1;
+const itemsPerPage = 15;
+
+// تهيئة الصفحة
+document.addEventListener('DOMContentLoaded', function() {
+    // توليد رقم سند تلقائي
+    generateReceiptNumber();
+    
+    // تحديث التاريخ التلقائي
+    updateAutoFields();
+    
+    // تحديث اختيار نوع المركبة
+    setupVehicleSelect();
+    
+    // عرض البيانات
+    renderAllOperations();
+    renderDispensedOperations();
+});
+
+// توليد رقم سند تلقائي
+async function generateReceiptNumber() {
+    try {
+        const response = await fetch('/api/generate-receipt-number');
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('receipt_number').value = data.receipt_number;
+        }
+    } catch (error) {
+        console.error('خطأ في توليد رقم السند:', error);
+        // رقم افتراضي إذا فشل الاتصال
+        document.getElementById('receipt_number').value = 'TEMP-' + Date.now();
+    }
+}
+
+// تحديث الحقول التلقائية
+function updateAutoFields() {
+    const dateInput = document.getElementById('operation_date');
+    if (dateInput.value) {
+        const date = new Date(dateInput.value);
+        const month = date.toLocaleDateString('ar-SA', { year: 'numeric', month: 'long' });
+        document.getElementById('autoMonth').textContent = month;
+    }
+}
+
+// إعداد اختيار نوع المركبة
+function setupVehicleSelect() {
+    const vehicleSelect = document.getElementById('vehicle_type');
+    const vehicleOther = document.getElementById('vehicle_other');
+    
+    vehicleSelect.addEventListener('change', function() {
+        if (this.value === 'أخرى') {
+            vehicleOther.style.display = 'block';
+            vehicleOther.required = true;
+        } else {
+            vehicleOther.style.display = 'none';
+            vehicleOther.required = false;
+            vehicleOther.value = '';
+        }
+    });
+}
+
+// تبديل حقل الغرض حسب نوع الصرف
+function togglePurposeField() {
+    const dispenseType = document.getElementById('dispense_type');
+    const unitField = document.getElementById('unitField');
+    const purposeField = document.getElementById('purposeField');
+    const purposeInput = document.getElementById('purpose');
+    const unitSelect = document.getElementById('unit_id');
+    
+    if (dispenseType.value === '1') { // مخصص
+        unitField.style.display = 'block';
+        unitSelect.required = true;
+        purposeField.style.display = 'none';
+        purposeInput.required = false;
+        purposeInput.value = '';
+    } else { // بلاغ أو أوامر
+        unitField.style.display = 'none';
+        unitSelect.required = false;
+        unitSelect.value = '';
+        purposeField.style.display = 'block';
+        purposeInput.required = true;
+    }
+}
+
+// عرض نموذج الإضافة
+function showAddOperationForm() {
+    document.getElementById('addOperationModal').classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+// إغلاق نموذج الإضافة
+function closeAddModal() {
+    document.getElementById('addOperationModal').classList.remove('active');
+    document.body.style.overflow = 'auto';
+    document.getElementById('addOperationForm').reset();
+    togglePurposeField();
+    generateReceiptNumber();
+}
+
+// إرسال نموذج العملية
+async function submitOperationForm(event) {
+    event.preventDefault();
+    
+    // التحقق من صحة البيانات
+    if (!validateForm()) {
+        return false;
+    }
+    
+    // جمع البيانات
+    const formData = {
+        operation_date: document.getElementById('operation_date').value,
+        receipt_number: document.getElementById('receipt_number').value,
+        driver_name: document.getElementById('driver_name').value,
+        vehicle_type: document.getElementById('vehicle_type').value === 'أخرى' ? 
+                      document.getElementById('vehicle_other').value : 
+                      document.getElementById('vehicle_type').value,
+        dispense_type_id: document.getElementById('dispense_type').value,
+        unit_id: document.getElementById('unit_id').value || null,
+        purpose: document.getElementById('purpose').value || '',
+        petrol_quantity: parseFloat(document.getElementById('petrol_quantity').value) || 0,
+        diesel_quantity: parseFloat(document.getElementById('diesel_quantity').value) || 0,
+        notes: document.getElementById('notes').value,
+        // القيم التلقائية
+        receipt_status_id: 2, // غير منصرف افتراضياً
+        operation_officer: '', // سيتم تعبئته من قبل المناوب بالمحروقات
+        month: document.getElementById('autoMonth').textContent,
+        user_id: {{ session.user_id }}
+    };
+    
+    // إظهار حالة التحميل
+    const submitBtn = document.getElementById('submitBtn');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الحفظ...';
+    submitBtn.disabled = true;
+    
+    try {
+        const response = await fetch('/api/add-operation', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showSuccess('تم إضافة العملية بنجاح! رقم السند: ' + data.receipt_number);
+            closeAddModal();
+            refreshData();
+        } else {
+            showError(data.message || 'حدث خطأ أثناء إضافة العملية');
+        }
+    } catch (error) {
+        console.error('خطأ في إرسال البيانات:', error);
+        showError('تعذر الاتصال بالخادم');
+    } finally {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    }
+    
+    return false;
+}
+
+// التحقق من صحة النموذج
+function validateForm() {
+    let isValid = true;
+    
+    // التحقق من اسم السائق
+    const driverName = document.getElementById('driver_name').value.trim();
+    if (!driverName) {
+        showFieldError('driver_name', 'اسم السائق مطلوب');
+        isValid = false;
+    }
+    
+    // التحقق من نوع المركبة
+    const vehicleType = document.getElementById('vehicle_type').value;
+    if (!vehicleType) {
+        showFieldError('vehicle_type', 'نوع المركبة مطلوب');
+        isValid = false;
+    }
+    
+    // التحقق من نوع الصرف
+    const dispenseType = document.getElementById('dispense_type').value;
+    if (!dispenseType) {
+        showFieldError('dispense_type', 'نوع الصرف مطلوب');
+        isValid = false;
+    }
+    
+    // التحقق من الوحدة (للمخصص فقط)
+    if (dispenseType === '1') { // مخصص
+        const unitId = document.getElementById('unit_id').value;
+        if (!unitId) {
+            showFieldError('unit_id', 'الوحدة مطلوبة للصرف المخصص');
+            isValid = false;
+        }
+    }
+    
+    // التحقق من الغرض (للبلاغ والأوامر فقط)
+    if (dispenseType === '2' || dispenseType === '3') { // بلاغ أو أوامر
+        const purpose = document.getElementById('purpose').value.trim();
+        if (!purpose) {
+            showFieldError('purpose', 'الغرض مطلوب للصرف غير المخصص');
+            isValid = false;
+        }
+    }
+    
+    // التحقق من كمية الوقود
+    const petrol = parseFloat(document.getElementById('petrol_quantity').value) || 0;
+    const diesel = parseFloat(document.getElementById('diesel_quantity').value) || 0;
+    const fuelError = document.getElementById('fuelError');
+    
+    if (petrol === 0 && diesel === 0) {
+        fuelError.textContent = 'يجب إدخال كمية بترول أو ديزل';
+        isValid = false;
+    } else {
+        fuelError.textContent = '';
+    }
+    
+    return isValid;
+}
+
+// عرض خطأ للحقل
+function showFieldError(fieldId, message) {
+    const field = document.getElementById(fieldId);
+    const errorDiv = document.getElementById(fieldId + 'Error') || field.nextElementSibling;
+    
+    if (errorDiv && errorDiv.classList.contains('form-error')) {
+        errorDiv.textContent = message;
+        field.style.borderColor = '#e74c3c';
+        
+        // إزالة الخطأ عند التصحيح
+        field.addEventListener('input', function() {
+            errorDiv.textContent = '';
+            field.style.borderColor = '#e0e0e0';
+        }, { once: true });
+    }
+}
+
+// عرض جميع العمليات
+function renderAllOperations() {
+    const tableBody = document.querySelector('#allOperationsTable tbody');
+    const searchTerm = document.getElementById('searchAll').value.toLowerCase();
+    const statusFilter = document.getElementById('filterStatus').value;
+    
+    // تصفية البيانات
+    let filteredData = allOperationsData.filter(op => {
+        // البحث
+        if (searchTerm) {
+            const searchable = [
+                op.driver_name,
+                op.vehicle_type,
+                op.receipt_number.toString(),
+                op.notes || ''
+            ].join(' ').toLowerCase();
+            
+            if (!searchable.includes(searchTerm)) {
+                return false;
+            }
+        }
+        
+        // فلترة الحالة
+        if (statusFilter && op.receipt_status_id != statusFilter) {
+            return false;
+        }
+        
+        return true;
+    });
+    
+    // حساب الصفحات
+    const startIndex = (currentPageAll - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const pageData = filteredData.slice(startIndex, endIndex);
+    
+    // التقديم
+    tableBody.innerHTML = pageData.map((op, index) => `
+        <tr data-status="${op.receipt_status_id}" data-dispense="${op.dispense_type_id}">
+            <td>${startIndex + index + 1}</td>
+            <td>
+                <strong class="receipt-number">#${op.receipt_number}</strong>
+                ${op.receipt_status_id == 1 ? '<span class="badge success">✓</span>' : ''}
+            </td>
+            <td>${op.operation_date}</td>
+            <td>${op.driver_name}</td>
+            <td><span class="vehicle-badge">${op.vehicle_type}</span></td>
+            <td>
+                ${op.petrol_quantity > 0 && op.diesel_quantity > 0 ? 
+                    '<div class="fuel-badges"><span class="badge petrol">بترول</span><span class="badge diesel">ديزل</span></div>' : 
+                    op.petrol_quantity > 0 ? 
+                    '<span class="badge petrol">بترول</span>' : 
+                    '<span class="badge diesel">ديزل</span>'
+                }
+            </td>
+            <td>
+                ${op.petrol_quantity > 0 ? `<div class="quantity petrol">${parseFloat(op.petrol_quantity).toFixed(2)} لتر</div>` : ''}
+                ${op.diesel_quantity > 0 ? `<div class="quantity diesel">${parseFloat(op.diesel_quantity).toFixed(2)} لتر</div>` : ''}
+            </td>
+            <td>
+                <span class="dispense-type ${op.dispense_name.replace(' ', '-')}">
+                    ${op.dispense_name}
+                </span>
+            </td>
+            <td>
+                <span class="status-badge status-${op.status_name.replace(' ', '-')}">
+                    ${op.receipt_status_id == 1 ? '<i class="fas fa-check-circle"></i>' : 
+                     op.receipt_status_id == 2 ? '<i class="fas fa-times-circle"></i>' : 
+                     '<i class="fas fa-clock"></i>'}
+                    ${op.status_name}
+                </span>
+            </td>
+            <td>
+                ${op.dispensed_by ? 
+                    `<div class="dispensed-by"><i class="fas fa-user-check"></i>${op.dispensed_by}</div>` : 
+                    '<span class="text-muted">لم يصرف بعد</span>'
+                }
+            </td>
+            <td>
+                ${op.dispensed_at ? 
+                    `<div class="dispensed-time"><i class="fas fa-calendar-alt"></i>${op.dispensed_at.slice(0, 16)}</div>` : 
+                    ''
+                }
+            </td>
+            <td>
+                ${op.notes ? 
+                    `<div class="notes-preview" onclick="showNotes(${op.id}, '${escapeHtml(op.notes)}')">
+                        ${op.notes.length > 30 ? op.notes.substring(0, 30) + '...' : op.notes}
+                    </div>` : 
+                    '<span class="text-muted">لا توجد</span>'
+                }
+            </td>
+            <td>
+                <div class="action-buttons">
+                    ${op.receipt_status_id != 1 ? 
+                        `<button class="btn btn-sm btn-warning" onclick="editOperation(${op.id})" title="تعديل">
+                            <i class="fas fa-edit"></i>
+                        </button>` : ''
+                    }
+                    <button class="btn btn-sm btn-info" onclick="viewOperation(${op.id})" title="عرض التفاصيل">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteOperation(${op.id})" title="حذف"
+                        ${op.receipt_status_id == 1 ? 'disabled' : ''}>
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+    
+    // إذا لم توجد بيانات
+    if (pageData.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="13" class="text-center">
+                    <div class="empty-state">
+                        <i class="fas fa-search fa-2x"></i>
+                        <h4>لا توجد نتائج</h4>
+                        <p>جرب مصطلحات بحث مختلفة أو أعد تعيين الفلاتر</p>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }
+    
+    // تحديث معلومات الصفحة
+    document.getElementById('allCurrentPage').textContent = currentPageAll;
+    updatePaginationButtons('all', filteredData.length);
+}
+
+// عرض العمليات المنصرفة
+function renderDispensedOperations() {
+    const tableBody = document.querySelector('#dispensedOperationsTable tbody');
+    const fromDate = document.getElementById('fromDate').value;
+    const toDate = document.getElementById('toDate').value;
+    
+    // تصفية حسب التاريخ
+    let filteredData = dispensedOperationsData.filter(op => {
+        if (!op.dispensed_at) return false;
+        
+        const dispensedDate = op.dispensed_at.slice(0, 10);
+        return dispensedDate >= fromDate && dispensedDate <= toDate;
+    });
+    
+    // حساب الصفحات
+    const startIndex = (currentPageDispensed - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const pageData = filteredData.slice(startIndex, endIndex);
+    
+    // التقديم
+    tableBody.innerHTML = pageData.map((op, index) => `
+        <tr>
+            <td>${startIndex + index + 1}</td>
+            <td>
+                <strong class="receipt-number">#${op.receipt_number}</strong>
+                <span class="badge success">تم الصرف</span>
+            </td>
+            <td>
+                <div class="date-info">
+                    <div class="original-date">
+                        <small>التاريخ الأصلي:</small>
+                        ${op.operation_date}
+                    </div>
+                    <div class="dispensed-date">
+                        <small>تاريخ الصرف:</small>
+                        ${op.dispensed_at.slice(0, 10)}
+                    </div>
+                </div>
+            </td>
+            <td>${op.driver_name}</td>
+            <td><span class="vehicle-badge">${op.vehicle_type}</span></td>
+            <td>
+                ${op.petrol_quantity > 0 ? 
+                    `<div class="quantity petrol">
+                        <i class="fas fa-fire"></i>
+                        ${parseFloat(op.petrol_quantity).toFixed(2)} لتر
+                    </div>` : ''
+                }
+                ${op.diesel_quantity > 0 ? 
+                    `<div class="quantity diesel">
+                        <i class="fas fa-oil-can"></i>
+                        ${parseFloat(op.diesel_quantity).toFixed(2)} لتر
+                    </div>` : ''
+                }
+            </td>
+            <td>
+                <div class="user-info">
+                    <div class="user-name">
+                        <i class="fas fa-user-check"></i>
+                        ${op.dispensed_by}
+                    </div>
+                    <div class="user-role">
+                        <small>مناوب بالمحروقات</small>
+                    </div>
+                </div>
+            </td>
+            <td>
+                ${op.dispense_notes ? 
+                    `<div class="notes-preview" onclick="showDispenseNotes(${op.id}, '${escapeHtml(op.dispense_notes)}')">
+                        ${op.dispense_notes.length > 30 ? op.dispense_notes.substring(0, 30) + '...' : op.dispense_notes}
+                    </div>` : 
+                    '<span class="text-muted">لا توجد ملاحظات</span>'
+                }
+            </td>
+            <td>
+                <div class="timestamp">
+                    <i class="fas fa-clock"></i>
+                    ${op.dispensed_at.slice(0, 16)}
+                </div>
+            </td>
+            <td>
+                <div class="action-buttons">
+                    <button class="btn btn-sm btn-info" onclick="viewDispensedDetails(${op.id})">
+                        <i class="fas fa-file-invoice"></i> فاتورة
+                    </button>
+                    <button class="btn btn-sm btn-secondary" onclick="printReceipt(${op.id})">
+                        <i class="fas fa-print"></i> طباعة
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+    
+    // إذا لم توجد بيانات
+    if (pageData.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="10" class="text-center">
+                    <div class="empty-state">
+                        <i class="fas fa-calendar-times fa-2x"></i>
+                        <h4>لا توجد سجلات في الفترة المحددة</h4>
+                        <p>غير فترة التصفية لعرض المزيد من السجلات</p>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }
+}
+
+// تحديث أزرار الترقيم
+function updatePaginationButtons(type, totalItems) {
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    
+    if (type === 'all') {
+        document.getElementById('prevPage').disabled = currentPageAll <= 1;
+        document.getElementById('nextPage').disabled = currentPageAll >= totalPages;
+    }
+}
+
+// البحث في جميع العمليات
+function searchAllOperations() {
+    currentPageAll = 1;
+    renderAllOperations();
+}
+
+// فلترة جميع العمليات
+function filterAllOperations() {
+    currentPageAll = 1;
+    renderAllOperations();
+}
+
+// فلترة العمليات المنصرفة
+function filterDispensed() {
+    currentPageDispensed = 1;
+    renderDispensedOperations();
+}
+
+// الصفحة السابقة
+function prevPage(type) {
+    if (type === 'all' && currentPageAll > 1) {
+        currentPageAll--;
+        renderAllOperations();
+    } else if (type === 'dispensed' && currentPageDispensed > 1) {
+        currentPageDispensed--;
+        renderDispensedOperations();
+    }
+}
+
+// الصفحة التالية
+function nextPage(type) {
+    if (type === 'all') {
+        const totalItems = getFilteredAllOperations().length;
+        const totalPages = Math.ceil(totalItems / itemsPerPage);
+        
+        if (currentPageAll < totalPages) {
+            currentPageAll++;
+            renderAllOperations();
+        }
+    } else if (type === 'dispensed') {
+        const totalItems = getFilteredDispensedOperations().length;
+        const totalPages = Math.ceil(totalItems / itemsPerPage);
+        
+        if (currentPageDispensed < totalPages) {
+            currentPageDispensed++;
+            renderDispensedOperations();
+        }
+    }
+}
+
+// الحصول على العمليات المصفاة
+function getFilteredAllOperations() {
+    const searchTerm = document.getElementById('searchAll').value.toLowerCase();
+    const statusFilter = document.getElementById('filterStatus').value;
+    
+    return allOperationsData.filter(op => {
+        if (searchTerm) {
+            const searchable = [
+                op.driver_name,
+                op.vehicle_type,
+                op.receipt_number.toString(),
+                op.notes || ''
+            ].join(' ').toLowerCase();
+            
+            if (!searchable.includes(searchTerm)) {
+                return false;
+            }
+        }
+        
+        if (statusFilter && op.receipt_status_id != statusFilter) {
+            return false;
+        }
+        
+        return true;
+    });
+}
+
+// عرض الملاحظات
+function showNotes(operationId, notes) {
+    document.getElementById('notesContent').innerHTML = `
+        <div class="notes-content">
+            <h4>ملاحظات العملية #${operationId}</h4>
+            <div class="notes-text">${notes}</div>
+        </div>
+    `;
+    document.getElementById('notesModal').classList.add('active');
+}
+
+// عرض ملاحظات الصرف
+function showDispenseNotes(operationId, notes) {
+    document.getElementById('notesContent').innerHTML = `
+        <div class="notes-content">
+            <h4>ملاحظات الصرف #${operationId}</h4>
+            <div class="notes-text">${notes}</div>
+        </div>
+    `;
+    document.getElementById('notesModal').classList.add('active');
+}
+
+// إغلاق مودال الملاحظات
+function closeNotesModal() {
+    document.getElementById('notesModal').classList.remove('active');
+}
+
+// تعديل العملية
+function editOperation(operationId) {
+    // توجيه إلى صفحة التعديل
+    window.location.href = `/operations/edit/${operationId}`;
+}
+
+// عرض التفاصيل
+function viewOperation(operationId) {
+    // توجيه إلى صفحة التفاصيل
+    window.location.href = `/operations/view/${operationId}`;
+}
+
+// حذف العملية
+async function deleteOperation(operationId) {
+    if (!confirm('هل أنت متأكد من حذف هذه العملية؟ هذا الإجراء لا يمكن التراجع عنه.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/delete-operation/${operationId}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showSuccess('تم حذف العملية بنجاح');
+            refreshData();
+        } else {
+            showError(data.message || 'تعذر حذف العملية');
+        }
+    } catch (error) {
+        console.error('خطأ في الحذف:', error);
+        showError('تعذر الاتصال بالخادم');
+    }
+}
+
+// عرض تفاصيل العملية المنصرفة
+function viewDispensedDetails(operationId) {
+    // توجيه إلى صفحة الفاتورة
+    window.location.href = `/operations/receipt/${operationId}`;
+}
+
+// طباعة السند
+function printReceipt(operationId) {
+    window.open(`/operations/print/${operationId}`, '_blank');
+}
+
+// تحديث البيانات
+function refreshData() {
+    location.reload();
+}
+
+// إظهار رسالة نجاح
+function showSuccess(message) {
+    alert(message); // يمكن استبداله بمكتبة إشعارات أفضل
+}
+
+// إظهار رسالة خطأ
+function showError(message) {
+    alert('خطأ: ' + message); // يمكن استبداله بمكتبة إشعارات أفضل
+}
+
+// الهروب من HTML
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// تحديث وقت الخادم
+setInterval(() => {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('ar-SA');
+    document.querySelectorAll('.server-time').forEach(el => {
+        el.textContent = timeString;
+    });
+}, 1000);
+</script>
+{% endblock %}

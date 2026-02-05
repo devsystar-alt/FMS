@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام إدارة المحروقات - {% block title %}{% endblock %}</title>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- CSS الخاص بالتطبيق -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    <!-- CSS إضافي للصفحات -->
+    {% block styles %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+
+    {% if session.user_id and request.path != '/login' %}
+    <!-- شريط التنقل للمستخدمين المسجلين -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-gas-pump"></i>
+                <span>نظام إدارة المحروقات</span>
+            </div>
+
+            <div class="nav-links">
+                <a href="{{ url_for('dashboard') }}" class="nav-link">
+                    <i class="fas fa-home"></i>
+                    <span>الرئيسية</span>
+                </a>
+
+                {% if session.user_role == 'مدير النظام' %}
+                <div class="nav-dropdown">
+                    <a href="#" class="nav-link">
+                        <i class="fas fa-crown"></i>
+                        <span>الإدارة</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </a>
+                    <div class="dropdown-menu">
+                        <a href="{{ url_for('admin_users') }}" class="dropdown-item">
+                            <i class="fas fa-users"></i> المستخدمون
+                        </a>
+                        <a href="{{ url_for('admin_operations') }}" class="dropdown-item">
+                            <i class="fas fa-list-alt"></i> جميع العمليات
+                        </a>
+                        <a href="{{ url_for('admin_reports') }}" class="dropdown-item">
+                            <i class="fas fa-chart-pie"></i> التقارير
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if session.user_role == 'مسؤول النظام' %}
+                <a href="{{ url_for('system_manager_dashboard') }}" class="nav-link">
+                    <i class="fas fa-cogs"></i>
+                    <span>إعدادات النظام</span>
+                </a>
+                {% endif %}
+
+                {% if session.user_role == 'المناوب بالعمليات' %}
+                <a href="{{ url_for('operations_dashboard') }}" class="nav-link">
+                    <i class="fas fa-tasks"></i>
+                    <span>العمليات</span>
+                </a>
+                {% endif %}
+
+                {% if session.user_role == 'المناوب بالمحروقات' %}
+                <div class="nav-dropdown">
+                    <a href="#" class="nav-link">
+                        <i class="fas fa-gas-pump"></i>
+                        <span>المحروقات</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </a>
+                    <div class="dropdown-menu">
+                        <a href="{{ url_for('fuel_dashboard') }}" class="dropdown-item">
+                            <i class="fas fa-tachometer-alt"></i> لوحة التحكم
+                        </a>
+                        <a href="{{ url_for('fuel_operations') }}" class="dropdown-item">
+                            <i class="fas fa-plus-circle"></i> إضافة عملية
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="nav-user">
+                <div class="user-info">
+                    <span class="user-name">{{ session.user_name }}</span>
+                    <span class="user-role {{ session.user_role|lower|replace(' ', '-') }}">
+                        {{ session.user_role }}
+                    </span>
+                </div>
+                <a href="{{ url_for('logout') }}" class="logout-btn" title="تسجيل الخروج">
+                    <i class="fas fa-sign-out-alt"></i>
+                </a>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+
+    <!-- الرسائل العابرة -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                    <div class="flash flash-{{ category }}">
+                        <div class="flash-content">
+                            {% if category == 'success' %}
+                                <i class="fas fa-check-circle"></i>
+                            {% elif category == 'danger' %}
+                                <i class="fas fa-exclamation-circle"></i>
+                            {% elif category == 'warning' %}
+                                <i class="fas fa-exclamation-triangle"></i>
+                            {% elif category == 'info' %}
+                                <i class="fas fa-info-circle"></i>
+                            {% endif %}
+                            <span>{{ message }}</span>
+                        </div>
+                        <button class="flash-close">&times;</button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- المحتوى الرئيسي -->
+    <main class="main-content {% if not session.user_id %}main-login{% endif %}">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- التذييل الجديد -->
+    {% if request.path != '/login' %}
+    <footer class="footer">
+        <!--  المتحركة -->
+        <div class="footer-waves">
+            <div class="wave wave-1"></div>
+            <div class="wave wave-2"></div>
+            <div class="wave wave-3"></div>
+        </div>
+
+        <!-- المحتوى الرئيسي للتذييل -->
+        <div class="footer-main">
+            <div class="footer-container">
+                <!-- معلومات النظام -->
+                <div class="footer-column system-info">
+                    <div class="footer-icon">
+                        <i class="fas fa-rocket"></i>
+                    </div>
+                    <h4 class="footer-title">معلومات النظام</h4>
+                    <div class="system-details">
+                        <p class="system-version">
+                            <span class="label">الإصدار:</span>
+                            <span class="value">1.0.0</span>
+                        </p>
+                        <p class="system-tech">
+                            <span class="label">التقنية:</span>
+                            <span class="value"> سوف يتم تحديدها لاحقا</span>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- المستخدم الحالي -->
+                <div class="footer-column user-info">
+                    <div class="footer-icon">
+                        <i class="fas fa-user-tie"></i>
+                    </div>
+                    <h4 class="footer-title">المستخدم الحالي</h4>
+                    <div class="user-details">
+                        <p class="user-name">
+                            <i class="fas fa-user-circle"></i>
+                            {{ session.get('user_name', 'زائر') }}
+                        </p>
+                        <span class="role-badge {{ session.get('user_role', '')|lower|replace(' ', '-') }}">
+                            <i class="fas fa-shield-alt"></i>
+                            {{ session.get('user_role', 'غير مسجل') }}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- وقت الخادم -->
+                <div class="footer-column time-info">
+                    <div class="footer-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <h4 class="footer-title">الوقت الحالي</h4>
+                    <div class="time-details">
+                        <div class="real-time">
+                            <i class="fas fa-sync-alt"></i>
+                            <span id="server-time">{{ now.strftime('%Y-%m-%d %H:%M:%S') if now else '' }}</span>
+                        </div>
+                        <p class="last-login">
+                            آخر دخول: <span>{{ session.get('last_login', 'غير متوفر')|default('غير متوفر', true) }}</span>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- معلومات الاتصال -->
+                <div class="footer-column contact-info">
+                    <div class="footer-icon">
+                        <i class="fas fa-headset"></i>
+                    </div>
+                    <h4 class="footer-title">الدعم الفني</h4>
+                    <div class="contact-details">
+                        <p class="support-email">
+                            <i class="fas fa-envelope"></i>
+                            anasabdoh@system.com
+                        </p>
+                        <p class="support-phone">
+                            <i class="fas fa-phone"></i>
+                            +967 777669270
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <div class="developer-section">
+            <div class="developer-container">
+                <!-- الموجة الفاصلة -->
+                <div class="divider-wave">
+                    <svg viewBox="0 0 1200 120" preserveAspectRatio="none">
+                        <path d="M0,0V46.29c47.79,22.2,103.59,32.17,158,28,70.36-5.37,136.33-33.31,206.8-37.5C438.64,32.43,512.34,53.67,583,72.05c69.27,18,138.3,24.88,209.4,13.08,36.15-6,69.85-17.84,104.45-29.34C989.49,25,1113-14.29,1200,52.47V0Z"
+                              opacity=".25" fill="currentColor"></path>
+                        <path d="M0,0V15.81C13,36.92,27.64,56.86,47.69,72.05,99.41,111.27,165,111,224.58,91.58c31.15-10.15,60.09-26.07,89.67-39.8,40.92-19,84.73-46,130.83-49.67,36.26-2.85,70.9,9.42,98.6,31.56,31.77,25.39,62.32,62,103.63,73,40.44,10.79,81.35-6.69,119.13-24.28s75.16-39,116.92-43.05c59.73-5.85,113.28,22.88,168.9,38.84,30.2,8.66,59,6.17,87.09-7.5,22.43-10.89,48-26.93,60.65-49.24V0Z"
+                              opacity=".5" fill="currentColor"></path>
+                        <path d="M0,0V5.63C149.93,59,314.09,71.32,475.83,42.57c43-7.64,84.23-20.12,127.61-26.46,59-8.63,112.48,12.24,165.56,35.4C827.93,77.22,886,95.24,951.2,90c86.53-7,172.46-45.71,248.8-84.81V0Z"
+                              fill="currentColor"></path>
+                    </svg>
+                </div>
+
+                <!-- محتوى المطور -->
+                <div class="developer-content">
+                    <!--  الجودة -->
+                    <div class="quality-badge">
+                        <i class="fas fa-award"></i>
+                        <span>تصميم</span>
+                    </div>
+
+                    <!-- معلومات المطور -->
+                    <div class="developer-card">
+                        <div class="developer-avatar">
+                            <i class="fas fa-code"></i>
+                            <div class="avatar-ring"></div>
+                        </div>
+
+                        <div class="developer-details">
+                            <h3 class="developer-title">
+                                <span class="dev-label">تطوير وتصميم</span>
+                                <span class="dev-name">انس البرهمي</span>
+                            </h3>
+
+                            <div class="developer-contact">
+                                <!-- رقم الهاتف -->
+                                <a href="tel:777669270" class="contact-link phone">
+                                    <div class="contact-icon">
+                                        <i class="fas fa-phone-alt"></i>
+                                    </div>
+                                    <div class="contact-info">
+                                        <span class="contact-label">اتصل بنا</span>
+                                        <span class="contact-value">777669270</span>
+                                    </div>
+                                    <div class="contact-arrow">
+                                        <i class="fas fa-external-link-alt"></i>
+                                    </div>
+                                </a>
+
+                                <!-- البريد الإلكتروني -->
+                                <a href="mailto:anasabdoh2016@gmail.com" class="contact-link email">
+                                    <div class="contact-icon">
+                                        <i class="fas fa-envelope"></i>
+                                    </div>
+                                    <div class="contact-info">
+                                        <span class="contact-label">راسلنا</span>
+                                        <span class="contact-value">anasabdoh2016@gmail.com</span>
+                                    </div>
+                                    <div class="contact-arrow">
+                                        <i class="fas fa-external-link-alt"></i>
+                                    </div>
+                                </a>
+
+                                <!-- واتساب -->
+                                <a href="https://wa.me/777669270" target="_blank" class="contact-link whatsapp">
+                                    <div class="contact-icon">
+                                        <i class="fab fa-whatsapp"></i>
+                                    </div>
+                                    <div class="contact-info">
+                                        <span class="contact-label">راسلنا عبر</span>
+                                        <span class="contact-value">واتساب</span>
+                                    </div>
+                                    <div class="contact-arrow">
+                                        <i class="fas fa-external-link-alt"></i>
+                                    </div>
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- الأيقونات المتحركة -->
+                        <div class="developer-icons">
+                            <div class="icon-float html">
+                                <i class="fab fa-html5"></i>
+                            </div>
+                            <div class="icon-float css">
+                                <i class="fab fa-css3-alt"></i>
+                            </div>
+                            <div class="icon-float js">
+                                <i class="fab fa-js"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- حقوق الملكية -->
+        <div class="copyright-section">
+            <div class="copyright-content">
+                <p class="copyright-text">
+                    <i class="far fa-copyright"></i>
+                    <span>2024</span>
+                    <span class="system-name">نظام الإدارة</span>
+                    جميع الحقوق محفوظة
+                </p>
+
+                <div class="copyright-decoration">
+                    <span class="decoration-dot"></span>
+                    <span class="decoration-line"></span>
+                    <span class="decoration-dot"></span>
+                </div>
+
+                <p class="copyright-message">
+                    مصمم بعناية فائقة لتجربة مستخدم استثنائية
+                </p>
+            </div>
+        </div>
+    </footer>
+    {% endif %}
+
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+    {% if request.path == '/login' %}
+    <script src="{{ url_for('static', filename='js/login.js') }}"></script>
+    {% endif %}
+
+    {% block scripts %}{% endblock %}
+
+    <!-- CSS الخاص بالتذييل الجديد -->
+    <style>
+    /* التذييل الجديد */
+    .footer {
+        background: linear-gradient(135deg, #1a237e 0%, #283593 50%, #3949ab 100%);
+        color: white;
+        position: relative;
+        margin-top: auto;
+        overflow: hidden;
+    }
+
+    /* الموجات المتحركة */
+    .footer-waves {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100px;
+        overflow: hidden;
+        line-height: 0;
+        transform: rotate(180deg);
+    }
+
+    .footer-waves .wave {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 200%;
+        height: 100px;
+        background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 120" preserveAspectRatio="none"><path d="M0,0V46.29c47.79,22.2,103.59,32.17,158,28,70.36-5.37,136.33-33.31,206.8-37.5C438.64,32.43,512.34,53.67,583,72.05c69.27,18,138.3,24.88,209.4,13.08,36.15-6,69.85-17.84,104.45-29.34C989.49,25,1113-14.29,1200,52.47V0Z" opacity=".25" fill="white"/><path d="M0,0V15.81C13,36.92,27.64,56.86,47.69,72.05,99.41,111.27,165,111,224.58,91.58c31.15-10.15,60.09-26.07,89.67-39.8,40.92-19,84.73-46,130.83-49.67,36.26-2.85,70.9,9.42,98.6,31.56,31.77,25.39,62.32,62,103.63,73,40.44,10.79,81.35-6.69,119.13-24.28s75.16-39,116.92-43.05c59.73-5.85,113.28,22.88,168.9,38.84,30.2,8.66,59,6.17,87.09-7.5,22.43-10.89,48-26.93,60.65-49.24V0Z" opacity=".5" fill="white"/><path d="M0,0V5.63C149.93,59,314.09,71.32,475.83,42.57c43-7.64,84.23-20.12,127.61-26.46,59-8.63,112.48,12.24,165.56,35.4C827.93,77.22,886,95.24,951.2,90c86.53-7,172.46-45.71,248.8-84.81V0Z" fill="white"/></svg>');
+        background-size: 50% 100px;
+        animation: waveAnimation 25s linear infinite;
+    }
+
+    .wave-1 {
+        opacity: 0.7;
+        animation-duration: 20s;
+    }
+
+    .wave-2 {
+        opacity: 0.5;
+        animation-duration: 15s;
+        animation-delay: -5s;
+    }
+
+    .wave-3 {
+        opacity: 0.3;
+        animation-duration: 10s;
+        animation-delay: -2s;
+    }
+
+    @keyframes waveAnimation {
+        0% { transform: translateX(0); }
+        100% { transform: translateX(-25%); }
+    }
+
+    /* المحتوى الرئيسي */
+    .footer-main {
+        padding: 60px 20px 40px;
+        position: relative;
+        z-index: 1;
+    }
+
+    .footer-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 30px;
+    }
+
+    .footer-column {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        padding: 25px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    .footer-column:hover {
+        transform: translateY(-5px);
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.2);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    .footer-icon {
+        width: 50px;
+        height: 50px;
+        background: linear-gradient(135deg, #4fc3f7, #2962ff);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 20px;
+        font-size: 1.5rem;
+    }
+
+    .footer-title {
+        font-size: 1.2rem;
+        margin-bottom: 20px;
+        color: #bbdefb;
+        font-weight: 600;
+    }
+
+    /* أنماط النصوص */
+    .system-details p,
+    .user-details p,
+    .time-details p,
+    .contact-details p {
+        margin: 8px 0;
+        font-size: 0.9rem;
+        color: rgba(255, 255, 255, 0.8);
+    }
+
+    .label {
+        color: #bbdefb;
+        margin-left: 5px;
+    }
+
+    .value {
+        color: white;
+        font-weight: 500;
+    }
+
+    .role-badge {
+        display: inline-block;
+        padding: 5px 15px;
+        background: rgba(76, 175, 80, 0.2);
+        border: 1px solid rgba(76, 175, 80, 0.3);
+        border-radius: 20px;
+        font-size: 0.85rem;
+        margin-top: 10px;
+    }
+
+    .real-time {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-family: 'Courier New', monospace;
+        background: rgba(0, 0, 0, 0.2);
+        padding: 10px 15px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+    }
+
+    /* قسم المطور */
+    .developer-section {
+        background: linear-gradient(to bottom, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0));
+        padding: 40px 20px 30px;
+        position: relative;
+    }
+
+    .divider-wave {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100px;
+        color: rgba(255, 255, 255, 0.1);
+    }
+
+    .divider-wave svg {
+        width: 100%;
+        height: 100%;
+    }
+
+    .developer-container {
+        max-width: 800px;
+        margin: 0 auto;
+        position: relative;
+    }
+
+    .quality-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        background: linear-gradient(135deg, #ff9800, #ff5722);
+        color: white;
+        padding: 8px 20px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        margin-bottom: 30px;
+        box-shadow: 0 5px 15px rgba(255, 87, 34, 0.3);
+        animation: badgeGlow 2s ease-in-out infinite;
+    }
+
+    @keyframes badgeGlow {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.8; }
+    }
+
+    /* بطاقة المطور */
+    .developer-card {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px;
+        padding: 30px;
+        display: flex;
+        align-items: center;
+        gap: 30px;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 20px;
+    }
+
+    .developer-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #4fc3f7, #2962ff, #9c27b0);
+        animation: gradientMove 3s ease-in-out infinite;
+    }
+
+    @keyframes gradientMove {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+    }
+
+    .developer-avatar {
+        position: relative;
+        flex-shrink: 0;
+    }
+
+    .developer-avatar i {
+        font-size: 2.5rem;
+        color: #2962ff;
+        background: rgba(41, 98, 255, 0.1);
+        width: 80px;
+        height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+    }
+
+    .avatar-ring {
+        position: absolute;
+        top: -5px;
+        left: -5px;
+        right: -5px;
+        bottom: -5px;
+        border: 2px solid rgba(41, 98, 255, 0.3);
+        border-radius: 50%;
+        animation: ringPulse 2s ease-in-out infinite;
+    }
+
+    @keyframes ringPulse {
+        0%, 100% { transform: scale(1); opacity: 0.5; }
+        50% { transform: scale(1.1); opacity: 0.8; }
+    }
+
+    .developer-details {
+        flex: 1;
+    }
+
+    .developer-title {
+        margin-bottom: 25px;
+    }
+
+    .dev-label {
+        display: block;
+        font-size: 0.9rem;
+        color: #666;
+        margin-bottom: 5px;
+        font-weight: 500;
+    }
+
+    .dev-name {
+        display: block;
+        font-size: 1.8rem;
+        color: #1a237e;
+        font-weight: 700;
+        background: linear-gradient(45deg, #2962ff, #9c27b0);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    /* معلومات الاتصال */
+    .developer-contact {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .contact-link {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding: 12px 20px;
+        background: white;
+        border-radius: 12px;
+        text-decoration: none;
+        color: #333;
+        transition: all 0.3s ease;
+        border: 1px solid #eee;
+    }
+
+    .contact-link:hover {
+        transform: translateX(-5px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    }
+
+    .contact-link.phone:hover {
+        background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+        border-color: #90caf9;
+    }
+
+    .contact-link.email:hover {
+        background: linear-gradient(135deg, #f3e5f5, #e1bee7);
+        border-color: #ce93d8;
+    }
+
+    .contact-link.whatsapp:hover {
+        background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+        border-color: #a5d6a7;
+    }
+
+    .contact-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        color: white;
+    }
+
+    .contact-link.phone .contact-icon {
+        background: #2196f3;
+    }
+
+    .contact-link.email .contact-icon {
+        background: #9c27b0;
+    }
+
+    .contact-link.whatsapp .contact-icon {
+        background: #4caf50;
+    }
+
+    .contact-info {
+        flex: 1;
+    }
+
+    .contact-label {
+        display: block;
+        font-size: 0.8rem;
+        color: #666;
+        margin-bottom: 3px;
+    }
+
+    .contact-value {
+        display: block;
+        font-size: 1rem;
+        color: #1a237e;
+        font-weight: 600;
+    }
+
+    .contact-arrow {
+        color: #999;
+        transition: transform 0.3s ease;
+    }
+
+    .contact-link:hover .contact-arrow {
+        transform: translateX(-5px);
+        color: #2962ff;
+    }
+
+    /* الأيقونات المتحركة */
+    .developer-icons {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+    }
+
+    .icon-float {
+        position: absolute;
+        font-size: 1.2rem;
+        opacity: 0.3;
+        animation: floatAnimation 6s ease-in-out infinite;
+    }
+
+    .icon-float.html {
+        color: #e34f26;
+        top: 0;
+        left: 0;
+        animation-delay: 0s;
+    }
+
+    .icon-float.css {
+        color: #1572b6;
+        top: 30px;
+        left: 40px;
+        animation-delay: 2s;
+    }
+
+    .icon-float.js {
+        color: #f7df1e;
+        top: 60px;
+        left: 20px;
+        animation-delay: 4s;
+    }
+
+    @keyframes floatAnimation {
+        0%, 100% { transform: translateY(0) rotate(0deg); }
+        50% { transform: translateY(-20px) rotate(10deg); }
+    }
+
+    /* حقوق الملكية */
+    .copyright-section {
+        background: rgba(0, 0, 0, 0.2);
+        padding: 25px 20px;
+        text-align: center;
+    }
+
+    .copyright-content {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .copyright-text {
+        font-size: 0.95rem;
+        color: rgba(255, 255, 255, 0.7);
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .system-name {
+        color: #bbdefb;
+        font-weight: 600;
+    }
+
+    .copyright-decoration {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+        margin: 15px 0;
+    }
+
+    .decoration-dot {
+        width: 6px;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+    }
+
+    .decoration-line {
+        width: 100px;
+        height: 1px;
+        background: rgba(255, 255, 255, 0.2);
+    }
+
+    .copyright-message {
+        font-size: 0.9rem;
+        color: rgba(255, 255, 255, 0.5);
+        font-style: italic;
+    }
+
+    /* تحسينات للشاشات الصغيرة */
+    @media (max-width: 768px) {
+        .footer-container {
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        .developer-card {
+            flex-direction: column;
+            text-align: center;
+            gap: 20px;
+            padding: 25px;
+        }
+
+        .developer-contact {
+            width: 100%;
+        }
+
+        .contact-link {
+            padding: 10px 15px;
+        }
+
+        .dev-name {
+            font-size: 1.5rem;
+        }
+
+        .copyright-text {
+            flex-direction: column;
+            gap: 5px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .footer-main {
+            padding: 40px 15px 30px;
+        }
+
+        .developer-card {
+            padding: 20px;
+        }
+
+        .developer-avatar i {
+            width: 60px;
+            height: 60px;
+            font-size: 2rem;
+        }
+
+        .contact-info .contact-value {
+            font-size: 0.9rem;
+        }
+
+        .contact-icon {
+            width: 35px;
+            height: 35px;
+            font-size: 1rem;
+        }
+    }
+
+    /* أنيميشن الرسائل */
+    @keyframes fadeOut {
+        from { opacity: 1; transform: translateY(0); }
+        to { opacity: 0; transform: translateY(-20px); }
+    }
+    </style>
+
+    <script>
+    // تحديث وقت الخادم
+    function updateServerTime() {
+        const now = new Date();
+        const options = {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        };
+
+        const timeString = now.toLocaleDateString('ar-SA', options);
+        const timeElement = document.getElementById('server-time');
+        if (timeElement) {
+            timeElement.textContent = timeString.replace(/،/g, ' | ');
+        }
+    }
+
+    // تحديث كل ثانية
+    setInterval(updateServerTime, 1000);
+    updateServerTime();
+
+    // إغلاق رسائل التنبيه
+    document.addEventListener('DOMContentLoaded', function() {
+        const closeButtons = document.querySelectorAll('.flash-close');
+        closeButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                this.parentElement.style.animation = 'fadeOut 0.3s ease-out';
+                setTimeout(() => {
+                    this.parentElement.remove();
+                }, 300);
+            });
+        });
+
+        // إغلاق تلقائي بعد 5 ثواني
+        const flashes = document.querySelectorAll('.flash');
+        flashes.forEach(flash => {
+            setTimeout(() => {
+                flash.style.animation = 'fadeOut 0.3s ease-out';
+                setTimeout(() => {
+                    if (flash.parentNode) {
+                        flash.remove();
+                    }
+                }, 300);
+            }, 5000);
+        });
+
+        // تأثير التمرير على التذييل
+        const footerColumns = document.querySelectorAll('.footer-column');
+        footerColumns.forEach(column => {
+            column.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-5px)';
+            });
+
+            column.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0)';
+            });
+        });
+    });
+    </script>
+</body>
+</html>

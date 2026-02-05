@@ -1,0 +1,2064 @@
+{% extends "layout.html" %}
+
+{% block title %}لوحة تحكم المناوب بالمحروقات{% endblock %}
+
+{% block content %}
+<div class="fuel-dashboard">
+    <!-- رأس الصفحة -->
+    <div class="dashboard-header">
+        <div class="header-info">
+            <h1><i class="fas fa-gas-pump"></i> لوحة تحكم المناوب بالمحروقات</h1>
+            <p>مرحباً {{ session.user_name }} | الوحدة: {{ current_unit.name if current_unit else 'جميع الوحدات' }}</p>
+            <div class="unit-stats">
+                <span class="stat-item">
+                    <i class="fas fa-clock"></i>
+                    <strong>{{ pending_operations|length }}</strong> عمليات قيد الانتظار
+                </span>
+                <span class="stat-item">
+                    <i class="fas fa-check-circle"></i>
+                    <strong>{{ today_dispensed|length }}</strong> تم صرفها اليوم
+                </span>
+                <span class="stat-item">
+                    <i class="fas fa-fire"></i>
+                    <strong>{{ "%.1f"|format(today_petrol) }}</strong> لتر بترول اليوم
+                </span>
+                <span class="stat-item">
+                    <i class="fas fa-oil-can"></i>
+                    <strong>{{ "%.1f"|format(today_diesel) }}</strong> لتر ديزل اليوم
+                </span>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-primary" onclick="showDispenseForm()">
+                <i class="fas fa-check-circle"></i> صرف عملية جديدة
+            </button>
+            <button class="btn btn-secondary" onclick="refreshData()">
+                <i class="fas fa-sync-alt"></i> تحديث
+            </button>
+        </div>
+    </div>
+
+    <!-- إحصائيات سريعة -->
+    <div class="quick-stats">
+        <div class="stat-card" onclick="filterByStatus('pending')">
+            <div class="stat-icon warning">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-number">{{ stats.pending_operations }}</div>
+                <div class="stat-label">قيد الانتظار</div>
+            </div>
+            <div class="stat-arrow">
+                <i class="fas fa-chevron-left"></i>
+            </div>
+        </div>
+        
+        <div class="stat-card" onclick="filterByStatus('dispensed')">
+            <div class="stat-icon success">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-number">{{ stats.today_dispensed }}</div>
+                <div class="stat-label">تم الصرف اليوم</div>
+            </div>
+            <div class="stat-arrow">
+                <i class="fas fa-chevron-left"></i>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon petrol">
+                <i class="fas fa-fire"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-number">{{ "%.1f"|format(stats.month_petrol) }}</div>
+                <div class="stat-label">لتر بترول هذا الشهر</div>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon diesel">
+                <i class="fas fa-oil-can"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-number">{{ "%.1f"|format(stats.month_diesel) }}</div>
+                <div class="stat-label">لتر ديزل هذا الشهر</div>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon users">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-number">{{ stats.active_units }}</div>
+                <div class="stat-label">وحدات نشطة</div>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon total">
+                <i class="fas fa-gas-pump"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-number">{{ "%.1f"|format(stats.month_petrol + stats.month_diesel) }}</div>
+                <div class="stat-label">إجمالي الوقود هذا الشهر</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- فلترة البحث -->
+    <div class="filters-section">
+        <div class="filters-header">
+            <h3><i class="fas fa-filter"></i> فلترة العمليات</h3>
+            <button class="btn btn-sm btn-secondary" onclick="resetFilters()">
+                <i class="fas fa-redo"></i> إعادة تعيين
+            </button>
+        </div>
+        
+        <div class="filters-grid">
+            <!-- فلترة حسب الحالة -->
+            <div class="filter-group">
+                <label><i class="fas fa-file-invoice"></i> حالة السند</label>
+                <div class="filter-buttons">
+                    <button class="filter-btn active" data-status="all" onclick="setFilter('status', 'all')">
+                        الكل
+                    </button>
+                    <button class="filter-btn" data-status="pending" onclick="setFilter('status', 'pending')">
+                        <i class="fas fa-clock"></i> قيد الانتظار
+                    </button>
+                    <button class="filter-btn" data-status="dispensed" onclick="setFilter('status', 'dispensed')">
+                        <i class="fas fa-check-circle"></i> تم الصرف
+                    </button>
+                </div>
+            </div>
+            
+            <!-- فلترة حسب الوحدة -->
+            <div class="filter-group">
+                <label><i class="fas fa-building"></i> الوحدة</label>
+                <select id="unitFilter" class="form-control" onchange="setFilter('unit', this.value)">
+                    <option value="all">جميع الوحدات</option>
+                    {% for unit in units %}
+                    <option value="{{ unit.id }}">{{ unit.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- فلترة حسب نوع الصرف -->
+            <div class="filter-group">
+                <label><i class="fas fa-gas-pump"></i> نوع الصرف</label>
+                <select id="dispenseFilter" class="form-control" onchange="setFilter('dispense', this.value)">
+                    <option value="all">جميع الأنواع</option>
+                    {% for type in dispense_types %}
+                    <option value="{{ type.id }}">{{ type.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- فلترة حسب التاريخ -->
+            <div class="filter-group">
+                <label><i class="fas fa-calendar"></i> الفترة</label>
+                <select id="dateFilter" class="form-control" onchange="setFilter('date', this.value)">
+                    <option value="today">اليوم</option>
+                    <option value="yesterday">أمس</option>
+                    <option value="week">آخر أسبوع</option>
+                    <option value="month">هذا الشهر</option>
+                    <option value="all">الكل</option>
+                </select>
+            </div>
+            
+            <!-- البحث -->
+            <div class="filter-group">
+                <label><i class="fas fa-search"></i> بحث</label>
+                <div class="search-box">
+                    <input type="text" id="searchInput" class="form-control" 
+                           placeholder="ابحث بالسائق، المركبة، رقم السند..." 
+                           onkeyup="setFilter('search', this.value)">
+                    <i class="fas fa-search"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- جدول العمليات -->
+    <div class="operations-section">
+        <div class="section-header">
+            <h2><i class="fas fa-list-alt"></i> قائمة العمليات</h2>
+            <div class="section-actions">
+                <span class="badge badge-info" id="operationsCount">
+                    {{ all_operations|length }} عملية
+                </span>
+                <button class="btn btn-sm btn-primary" onclick="exportToExcel()">
+                    <i class="fas fa-download"></i> تصدير Excel
+                </button>
+            </div>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="operations-table" id="operationsTable">
+                <thead>
+                    <tr>
+                        <th width="50">#</th>
+                        <th width="120">رقم السند</th>
+                        <th width="120">التاريخ</th>
+                        <th>الوحدة</th>
+                        <th>السائق</th>
+                        <th>المركبة</th>
+                        <th width="150">نوع الصرف</th>
+                        <th width="150">الوقود والكمية</th>
+                        <th width="120">حالة السند</th>
+                        <th width="150">المدخل</th>
+                        <th width="150">آخر تحديث</th>
+                        <th width="150">الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody id="operationsBody">
+                    {% for op in all_operations %}
+                    <tr class="operation-row status-{{ 'dispensed' if op.receipt_status_id == 1 else 'pending' }}"
+                        data-id="{{ op.id }}"
+                        data-status="{{ op.receipt_status_id }}"
+                        data-unit="{{ op.unit_id }}"
+                        data-dispense="{{ op.dispense_type_id }}"
+                        data-date="{{ op.operation_date }}">
+                        <td>{{ loop.index }}</td>
+                        <td>
+                            <div class="receipt-info">
+                                <strong class="receipt-number">#{{ op.receipt_number }}</strong>
+                                {% if op.receipt_status_id == 1 %}
+                                <span class="badge success"><i class="fas fa-check"></i></span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="date-info">
+                                <div>{{ op.operation_date }}</div>
+                                <small class="text-muted">{{ op.month }}</small>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="unit-info">
+                                <i class="fas fa-building"></i>
+                                <span>{{ op.unit_name or 'غير محدد' }}</span>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="driver-info">
+                                <i class="fas fa-user"></i>
+                                <span>{{ op.driver_name }}</span>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="vehicle-badge">{{ op.vehicle_type }}</span>
+                        </td>
+                        <td>
+                            <div class="dispense-type {{ op.dispense_name|replace(' ', '-')|lower }}">
+                                <i class="fas fa-tag"></i>
+                                {{ op.dispense_name }}
+                            </div>
+                            {% if op.purpose %}
+                            <small class="text-muted">{{ op.purpose|truncate(20) }}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="fuel-quantity">
+                                {% if op.petrol_quantity > 0 %}
+                                <div class="fuel-item petrol">
+                                    <i class="fas fa-fire"></i>
+                                    <span>{{ "%.1f"|format(op.petrol_quantity) }} لتر</span>
+                                </div>
+                                {% endif %}
+                                {% if op.diesel_quantity > 0 %}
+                                <div class="fuel-item diesel">
+                                    <i class="fas fa-oil-can"></i>
+                                    <span>{{ "%.1f"|format(op.diesel_quantity) }} لتر</span>
+                                </div>
+                                {% endif %}
+                                {% if op.petrol_quantity == 0 and op.diesel_quantity == 0 %}
+                                <span class="text-muted">لا يوجد</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            {% if op.receipt_status_id == 1 %}
+                            <div class="status-badge dispensed">
+                                <i class="fas fa-check-circle"></i>
+                                <span>منصرف</span>
+                                {% if op.dispensed_by %}
+                                <small>بواسطة: {{ op.dispensed_by }}</small>
+                                {% endif %}
+                            </div>
+                            {% elif op.receipt_status_id == 2 %}
+                            <div class="status-badge pending" onclick="showDispenseModal({{ op.id }})">
+                                <i class="fas fa-clock"></i>
+                                <span>غير منصرف</span>
+                                <small>انقر للصرف</small>
+                            </div>
+                            {% else %}
+                            <div class="status-badge other">
+                                <i class="fas fa-question-circle"></i>
+                                <span>{{ op.status_name }}</span>
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="user-info">
+                                <div class="user-name">{{ op.user_name }}</div>
+                                <div class="user-role {{ op.user_role|replace(' ', '-')|lower }}">
+                                    {{ op.user_role }}
+                                </div>
+                                <small>{{ op.created_at[:10] }}</small>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="update-info">
+                                <i class="fas fa-history"></i>
+                                <span>{{ op.updated_at[:16] if op.updated_at else op.created_at[:16] }}</span>
+                                {% if op.last_updater %}
+                                <small>آخر معدل: {{ op.last_updater }}</small>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                {% if op.receipt_status_id != 1 %}
+                                <button class="btn btn-success btn-sm" 
+                                        onclick="showDispenseModal({{ op.id }})"
+                                        title="صرف السند">
+                                    <i class="fas fa-check-circle"></i> صرف
+                                </button>
+                                {% endif %}
+                                <button class="btn btn-info btn-sm" 
+                                        onclick="viewOperationDetails({{ op.id }})"
+                                        title="عرض التفاصيل">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                {% if op.receipt_status_id == 1 %}
+                                <button class="btn btn-warning btn-sm" 
+                                        onclick="printReceipt({{ op.id }})"
+                                        title="طباعة السند">
+                                    <i class="fas fa-print"></i>
+                                </button>
+                                {% endif %}
+                                <button class="btn btn-secondary btn-sm" 
+                                        onclick="showNotes('{{ op.notes }}')"
+                                        {% if not op.notes %}disabled{% endif %}
+                                        title="الملاحظات">
+                                    <i class="fas fa-sticky-note"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="12" class="text-center">
+                            <div class="empty-state">
+                                <i class="fas fa-inbox fa-3x"></i>
+                                <h3>لا توجد عمليات</h3>
+                                <p>ابدأ بإضافة عمليات جديدة</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- ترقيم الصفحات -->
+        {% if all_operations|length > 0 %}
+        <div class="pagination-container">
+            <div class="pagination">
+                <button class="btn btn-sm" onclick="prevPage()" id="prevBtn">
+                    <i class="fas fa-chevron-right"></i> السابق
+                </button>
+                <div class="page-numbers">
+                    {% for page in range(1, 6) %}
+                    <button class="page-btn {% if page == 1 %}active{% endif %}" onclick="goToPage({{ page }})">
+                        {{ page }}
+                    </button>
+                    {% endfor %}
+                </div>
+                <button class="btn btn-sm" onclick="nextPage()" id="nextBtn">
+                    التالي <i class="fas fa-chevron-left"></i>
+                </button>
+            </div>
+            <div class="page-size">
+                <span>عرض</span>
+                <select id="pageSize" class="form-control-sm" onchange="changePageSize()">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+                <span>سجل في كل صفحة</span>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- المودال: صرف سند -->
+    <div id="dispenseModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-check-circle"></i> صرف السند</h3>
+                <button class="modal-close" onclick="closeDispenseModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="dispenseForm">
+                    <input type="hidden" id="operationId">
+                    
+                    <div class="operation-info">
+                        <h4>تفاصيل العملية</h4>
+                        <div class="info-grid" id="operationDetails">
+                            <!-- سيتم تعبئته بالجافاسكريبت -->
+                        </div>
+                    </div>
+                    
+                    <div class="form-section">
+                        <h4><i class="fas fa-gas-pump"></i> بيانات الصرف</h4>
+                        
+                        <div class="form-group">
+                            <label for="dispense_date">تاريخ الصرف *</label>
+                            <input type="date" id="dispense_date" class="form-control" 
+                                   value="{{ today }}" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="operation_officer">اسم المناوب بالمحروقات *</label>
+                            <input type="text" id="operation_officer" class="form-control" 
+                                   value="{{ session.user_name }}" required readonly>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="dispense_notes">ملاحظات الصرف</label>
+                            <textarea id="dispense_notes" class="form-control" rows="3" 
+                                      placeholder="أدخل أي ملاحظات حول عملية الصرف..."></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>تأكيد الصرف</label>
+                            <div class="confirmation-box">
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="confirm_quantity" required>
+                                    <label for="confirm_quantity">
+                                        تم التحقق من كمية الوقود المطلوبة
+                                    </label>
+                                </div>
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="confirm_vehicle" required>
+                                    <label for="confirm_vehicle">
+                                        تم التحقق من المركبة والسائق
+                                    </label>
+                                </div>
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="confirm_document" required>
+                                    <label for="confirm_document">
+                                        تم التحقق من صحة المستندات
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeDispenseModal()">
+                            إلغاء
+                        </button>
+                        <button type="submit" class="btn btn-success" id="dispenseBtn">
+                            <i class="fas fa-check-circle"></i> تأكيد الصرف
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- المودال: عرض التفاصيل -->
+    <div id="detailsModal" class="modal">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h3><i class="fas fa-info-circle"></i> تفاصيل العملية</h3>
+                <button class="modal-close" onclick="closeDetailsModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="detailsContent">
+                <!-- سيتم تعبئته بالجافاسكريبت -->
+            </div>
+        </div>
+    </div>
+
+    <!-- المودال: الملاحظات -->
+    <div id="notesModal" class="modal">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3><i class="fas fa-sticky-note"></i> الملاحظات</h3>
+                <button class="modal-close" onclick="closeNotesModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="notesContent"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* تصميم لوحة تحكم المناوب بالمحروقات */
+.fuel-dashboard {
+    padding: 20px;
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+/* رأس الصفحة */
+.dashboard-header {
+    background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+    color: white;
+    padding: 25px;
+    border-radius: 15px;
+    margin-bottom: 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.header-info h1 {
+    margin: 0 0 10px 0;
+    font-size: 1.8rem;
+}
+
+.header-info p {
+    margin: 0 0 15px 0;
+    opacity: 0.9;
+}
+
+.unit-stats {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 8px 15px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.stat-item:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.stat-item i {
+    color: #e74c3c;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+}
+
+/* الإحصائيات السريعة */
+.quick-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.stat-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100%;
+    height: 4px;
+}
+
+.stat-card:nth-child(1)::after { background: #f39c12; }
+.stat-card:nth-child(2)::after { background: #27ae60; }
+.stat-card:nth-child(3)::after { background: #e74c3c; }
+.stat-card:nth-child(4)::after { background: #3498db; }
+.stat-card:nth-child(5)::after { background: #9b59b6; }
+.stat-card:nth-child(6)::after { background: #2c3e50; }
+
+.stat-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    flex-shrink: 0;
+}
+
+.stat-icon.warning { background: rgba(243, 156, 18, 0.1); color: #f39c12; }
+.stat-icon.success { background: rgba(46, 204, 113, 0.1); color: #27ae60; }
+.stat-icon.petrol { background: rgba(231, 76, 60, 0.1); color: #e74c3c; }
+.stat-icon.diesel { background: rgba(52, 152, 219, 0.1); color: #3498db; }
+.stat-icon.users { background: rgba(155, 89, 182, 0.1); color: #9b59b6; }
+.stat-icon.total { background: rgba(44, 62, 80, 0.1); color: #2c3e50; }
+
+.stat-content {
+    flex: 1;
+}
+
+.stat-content .stat-number {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 5px;
+}
+
+.stat-content .stat-label {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.stat-arrow {
+    color: #999;
+    font-size: 1.2rem;
+}
+
+/* فلترة البحث */
+.filters-section {
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    margin-bottom: 30px;
+}
+
+.filters-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.filters-header h3 {
+    margin: 0;
+    color: #2c3e50;
+    font-size: 1.3rem;
+}
+
+.filters-header h3 i {
+    color: #9b59b6;
+    margin-left: 10px;
+}
+
+.filters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.filter-group {
+    margin-bottom: 15px;
+}
+
+.filter-group label {
+    display: block;
+    margin-bottom: 10px;
+    font-weight: bold;
+    color: #2c3e50;
+    font-size: 0.95rem;
+}
+
+.filter-group label i {
+    color: #9b59b6;
+    margin-left: 8px;
+}
+
+.filter-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.filter-btn {
+    padding: 8px 15px;
+    border: 2px solid #e0e0e0;
+    background: #f8f9fa;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.filter-btn:hover {
+    border-color: #9b59b6;
+    background: #f5eef8;
+}
+
+.filter-btn.active {
+    background: #9b59b6;
+    color: white;
+    border-color: #9b59b6;
+}
+
+.search-box {
+    position: relative;
+}
+
+.search-box input {
+    padding-left: 40px;
+}
+
+.search-box i {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #666;
+}
+
+/* جدول العمليات */
+.operations-section {
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.section-header h2 {
+    margin: 0;
+    color: #2c3e50;
+    font-size: 1.4rem;
+}
+
+.section-header h2 i {
+    color: #9b59b6;
+    margin-left: 10px;
+}
+
+.section-actions {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.table-responsive {
+    overflow-x: auto;
+}
+
+.operations-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 1200px;
+}
+
+.operations-table th {
+    background: #f8f9fa;
+    padding: 15px;
+    text-align: right;
+    font-weight: bold;
+    color: #2c3e50;
+    border-bottom: 2px solid #dee2e6;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.operations-table td {
+    padding: 12px 15px;
+    border-bottom: 1px solid #eee;
+    vertical-align: middle;
+}
+
+.operations-table tr:hover {
+    background: #f8f9fa;
+}
+
+.operations-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* عناصر الجدول */
+.receipt-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.receipt-number {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.date-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.unit-info, .driver-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.unit-info i, .driver-info i {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.vehicle-badge {
+    background: #f8f9fa;
+    padding: 5px 12px;
+    border-radius: 15px;
+    font-size: 0.9rem;
+    color: #555;
+    border: 1px solid #dee2e6;
+}
+
+.dispense-type {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 12px;
+    border-radius: 15px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.dispense-type.mخصص { background: rgba(155, 89, 182, 0.1); color: #9b59b6; }
+.dispense-type.بلاغ { background: rgba(52, 152, 219, 0.1); color: #3498db; }
+.dispense-type.أوامر { background: rgba(46, 204, 113, 0.1); color: #27ae60; }
+
+.fuel-quantity {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.fuel-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+.fuel-item.petrol { background: rgba(231, 76, 60, 0.1); color: #e74c3c; }
+.fuel-item.diesel { background: rgba(52, 152, 219, 0.1); color: #3498db; }
+
+.status-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-align: center;
+}
+
+.status-badge.pending {
+    background: rgba(243, 156, 18, 0.1);
+    color: #f39c12;
+    border: 2px dashed #f39c12;
+}
+
+.status-badge.pending:hover {
+    background: rgba(243, 156, 18, 0.2);
+    transform: scale(1.05);
+}
+
+.status-badge.dispensed {
+    background: rgba(46, 204, 113, 0.1);
+    color: #27ae60;
+    border: 2px solid #27ae60;
+}
+
+.status-badge.other {
+    background: rgba(149, 165, 166, 0.1);
+    color: #95a5a6;
+    border: 2px solid #95a5a6;
+}
+
+.status-badge i {
+    font-size: 1.2rem;
+    margin-bottom: 5px;
+}
+
+.status-badge small {
+    font-size: 0.8rem;
+    opacity: 0.8;
+    margin-top: 3px;
+}
+
+.user-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.user-name {
+    font-weight: bold;
+    color: #2c3e50;
+    font-size: 0.9rem;
+}
+
+.user-role {
+    font-size: 0.8rem;
+    color: #777;
+    margin-top: 2px;
+}
+
+.user-role.مناوب-بالعمليات { color: #27ae60; }
+.user-role.مدير-النظام { color: #f39c12; }
+.user-role.مسؤول-النظام { color: #3498db; }
+
+.update-info {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.9rem;
+}
+
+.update-info i {
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.action-buttons .btn-sm {
+    padding: 6px 10px;
+    font-size: 0.9rem;
+}
+
+/* ترقيم الصفحات */
+.pagination-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}
+
+.pagination {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.page-numbers {
+    display: flex;
+    gap: 5px;
+}
+
+.page-btn {
+    width: 35px;
+    height: 35px;
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.page-btn:hover {
+    border-color: #9b59b6;
+    color: #9b59b6;
+}
+
+.page-btn.active {
+    background: #9b59b6;
+    color: white;
+    border-color: #9b59b6;
+}
+
+.page-size {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #666;
+}
+
+.page-size select {
+    width: 70px;
+}
+
+/* المودالات */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 15px;
+    width: 100%;
+    max-width: 600px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    animation: modalSlide 0.3s ease-out;
+}
+
+.modal-content.modal-lg {
+    max-width: 800px;
+}
+
+.modal-content.modal-sm {
+    max-width: 500px;
+}
+
+@keyframes modalSlide {
+    from {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #2c3e50;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #777;
+}
+
+.modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+/* نموذج الصرف */
+.operation-info {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.operation-info h4 {
+    margin: 0 0 15px 0;
+    color: #2c3e50;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.info-label {
+    font-weight: bold;
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 5px;
+}
+
+.info-value {
+    color: #2c3e50;
+    font-weight: bold;
+}
+
+.form-section {
+    margin-top: 20px;
+}
+
+.form-section h4 {
+    margin: 0 0 15px 0;
+    color: #2c3e50;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.confirmation-box {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.checkbox-group input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+}
+
+.checkbox-group label {
+    margin: 0;
+    font-weight: normal;
+    cursor: pointer;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+    margin-top: 20px;
+}
+
+/* حالة فارغة */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #777;
+}
+
+.empty-state i {
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+.empty-state h3 {
+    margin: 10px 0;
+    font-weight: normal;
+}
+
+.empty-state p {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+/* تصميم متجاوب */
+@media (max-width: 1200px) {
+    .filters-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 992px) {
+    .dashboard-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 20px;
+    }
+    
+    .header-actions {
+        align-self: flex-end;
+    }
+    
+    .unit-stats {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+    
+    .pagination-container {
+        flex-direction: column;
+        gap: 15px;
+        align-items: flex-start;
+    }
+}
+
+@media (max-width: 768px) {
+    .fuel-dashboard {
+        padding: 10px;
+    }
+    
+    .quick-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .filters-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .filter-buttons {
+        flex-direction: column;
+    }
+    
+    .filter-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 576px) {
+    .quick-stats {
+        grid-template-columns: 1fr;
+    }
+    
+    .modal-content {
+        margin: 10px;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+    }
+    
+    .action-buttons .btn-sm {
+        width: 100%;
+    }
+}
+</style>
+
+<script>
+// بيانات التطبيق
+let allOperations = {{ all_operations|tojson|safe }};
+let currentPage = 1;
+let pageSize = 25;
+let currentFilters = {
+    status: 'all',
+    unit: 'all',
+    dispense: 'all',
+    date: 'today',
+    search: ''
+};
+
+// تهيئة الصفحة
+document.addEventListener('DOMContentLoaded', function() {
+    // تطبيق الفلاتر الافتراضية
+    applyFilters();
+    
+    // تحديث عدد العمليات
+    updateOperationsCount();
+    
+    // إعداد مستمعين للأحداث
+    setupEventListeners();
+    
+    // تحديث وقت الخادم
+    updateServerTime();
+});
+
+// إعداد مستمعين الأحداث
+function setupEventListeners() {
+    // تحديث البحث أثناء الكتابة
+    const searchInput = document.getElementById('searchInput');
+    let searchTimeout;
+    
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            currentFilters.search = this.value;
+            applyFilters();
+        }, 300);
+    });
+    
+    // اختصار Ctrl+F للبحث
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.key === 'f') {
+            e.preventDefault();
+            searchInput.focus();
+        }
+    });
+}
+
+// تطبيق الفلاتر
+function applyFilters() {
+    const filteredOperations = allOperations.filter(op => {
+        // فلترة حسب الحالة
+        if (currentFilters.status === 'pending' && op.receipt_status_id != 2) return false;
+        if (currentFilters.status === 'dispensed' && op.receipt_status_id != 1) return false;
+        
+        // فلترة حسب الوحدة
+        if (currentFilters.unit !== 'all' && op.unit_id != currentFilters.unit) return false;
+        
+        // فلترة حسب نوع الصرف
+        if (currentFilters.dispense !== 'all' && op.dispense_type_id != currentFilters.dispense) return false;
+        
+        // فلترة حسب التاريخ
+        const today = new Date().toISOString().split('T')[0];
+        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+        const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+        
+        if (currentFilters.date === 'today' && op.operation_date !== today) return false;
+        if (currentFilters.date === 'yesterday' && op.operation_date !== yesterday) return false;
+        if (currentFilters.date === 'week' && op.operation_date < weekAgo) return false;
+        if (currentFilters.date === 'month' && op.operation_date < monthAgo) return false;
+        
+        // البحث
+        if (currentFilters.search) {
+            const searchTerm = currentFilters.search.toLowerCase();
+            const searchFields = [
+                op.driver_name,
+                op.vehicle_type,
+                op.receipt_number.toString(),
+                op.unit_name || '',
+                op.purpose || '',
+                op.notes || ''
+            ].join(' ').toLowerCase();
+            
+            if (!searchFields.includes(searchTerm)) return false;
+        }
+        
+        return true;
+    });
+    
+    // عرض العمليات المصفاة
+    renderOperationsTable(filteredOperations);
+    
+    // تحديث عدد العمليات
+    updateOperationsCount(filteredOperations.length);
+}
+
+// عرض جدول العمليات
+function renderOperationsTable(operations) {
+    const tableBody = document.getElementById('operationsBody');
+    
+    // حساب الصفحات
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const pageOperations = operations.slice(startIndex, endIndex);
+    
+    if (pageOperations.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="12" class="text-center">
+                    <div class="empty-state">
+                        <i class="fas fa-search fa-3x"></i>
+                        <h3>لا توجد عمليات تطابق معايير البحث</h3>
+                        <p>جرب تغيير الفلاتر أو مصطلحات البحث</p>
+                    </div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    // بناء صفوف الجدول
+    tableBody.innerHTML = pageOperations.map((op, index) => `
+        <tr class="operation-row status-${op.receipt_status_id == 1 ? 'dispensed' : 'pending'}"
+            data-id="${op.id}"
+            data-status="${op.receipt_status_id}"
+            data-unit="${op.unit_id}"
+            data-dispense="${op.dispense_type_id}"
+            data-date="${op.operation_date}">
+            <td>${startIndex + index + 1}</td>
+            <td>
+                <div class="receipt-info">
+                    <strong class="receipt-number">#${op.receipt_number}</strong>
+                    ${op.receipt_status_id == 1 ? '<span class="badge success"><i class="fas fa-check"></i></span>' : ''}
+                </div>
+            </td>
+            <td>
+                <div class="date-info">
+                    <div>${op.operation_date}</div>
+                    <small class="text-muted">${op.month}</small>
+                </div>
+            </td>
+            <td>
+                <div class="unit-info">
+                    <i class="fas fa-building"></i>
+                    <span>${op.unit_name || 'غير محدد'}</span>
+                </div>
+            </td>
+            <td>
+                <div class="driver-info">
+                    <i class="fas fa-user"></i>
+                    <span>${op.driver_name}</span>
+                </div>
+            </td>
+            <td>
+                <span class="vehicle-badge">${op.vehicle_type}</span>
+            </td>
+            <td>
+                <div class="dispense-type ${op.dispense_name.replace(' ', '-').toLowerCase()}">
+                    <i class="fas fa-tag"></i>
+                    ${op.dispense_name}
+                </div>
+                ${op.purpose ? `<small class="text-muted">${op.purpose.substring(0, 20)}${op.purpose.length > 20 ? '...' : ''}</small>` : ''}
+            </td>
+            <td>
+                <div class="fuel-quantity">
+                    ${op.petrol_quantity > 0 ? `
+                        <div class="fuel-item petrol">
+                            <i class="fas fa-fire"></i>
+                            <span>${parseFloat(op.petrol_quantity).toFixed(1)} لتر</span>
+                        </div>
+                    ` : ''}
+                    ${op.diesel_quantity > 0 ? `
+                        <div class="fuel-item diesel">
+                            <i class="fas fa-oil-can"></i>
+                            <span>${parseFloat(op.diesel_quantity).toFixed(1)} لتر</span>
+                        </div>
+                    ` : ''}
+                    ${op.petrol_quantity == 0 && op.diesel_quantity == 0 ? `
+                        <span class="text-muted">لا يوجد</span>
+                    ` : ''}
+                </div>
+            </td>
+            <td>
+                ${op.receipt_status_id == 1 ? `
+                    <div class="status-badge dispensed">
+                        <i class="fas fa-check-circle"></i>
+                        <span>منصرف</span>
+                        ${op.dispensed_by ? `<small>بواسطة: ${op.dispensed_by}</small>` : ''}
+                    </div>
+                ` : op.receipt_status_id == 2 ? `
+                    <div class="status-badge pending" onclick="showDispenseModal(${op.id})">
+                        <i class="fas fa-clock"></i>
+                        <span>غير منصرف</span>
+                        <small>انقر للصرف</small>
+                    </div>
+                ` : `
+                    <div class="status-badge other">
+                        <i class="fas fa-question-circle"></i>
+                        <span>${op.status_name}</span>
+                    </div>
+                `}
+            </td>
+            <td>
+                <div class="user-info">
+                    <div class="user-name">${op.user_name}</div>
+                    <div class="user-role ${op.user_role.replace(' ', '-').toLowerCase()}">
+                        ${op.user_role}
+                    </div>
+                    <small>${op.created_at.substring(0, 10)}</small>
+                </div>
+            </td>
+            <td>
+                <div class="update-info">
+                    <i class="fas fa-history"></i>
+                    <span>${op.updated_at ? op.updated_at.substring(0, 16) : op.created_at.substring(0, 16)}</span>
+                    ${op.last_updater ? `<small>آخر معدل: ${op.last_updater}</small>` : ''}
+                </div>
+            </td>
+            <td>
+                <div class="action-buttons">
+                    ${op.receipt_status_id != 1 ? `
+                        <button class="btn btn-success btn-sm" 
+                                onclick="showDispenseModal(${op.id})"
+                                title="صرف السند">
+                            <i class="fas fa-check-circle"></i> صرف
+                        </button>
+                    ` : ''}
+                    <button class="btn btn-info btn-sm" 
+                            onclick="viewOperationDetails(${op.id})"
+                            title="عرض التفاصيل">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    ${op.receipt_status_id == 1 ? `
+                        <button class="btn btn-warning btn-sm" 
+                                onclick="printReceipt(${op.id})"
+                                title="طباعة السند">
+                            <i class="fas fa-print"></i>
+                        </button>
+                    ` : ''}
+                    <button class="btn btn-secondary btn-sm" 
+                            onclick="showNotes('${op.notes ? escapeHtml(op.notes) : ''}')"
+                            ${!op.notes ? 'disabled' : ''}
+                            title="الملاحظات">
+                        <i class="fas fa-sticky-note"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+    
+    // تحديث أزرار الصفحات
+    updatePagination(operations.length);
+}
+
+// تحديث عدد العمليات
+function updateOperationsCount(count = null) {
+    const totalCount = count !== null ? count : getFilteredOperations().length;
+    document.getElementById('operationsCount').textContent = `${totalCount} عملية`;
+}
+
+// الحصول على العمليات المصفاة
+function getFilteredOperations() {
+    return allOperations.filter(op => {
+        if (currentFilters.status === 'pending' && op.receipt_status_id != 2) return false;
+        if (currentFilters.status === 'dispensed' && op.receipt_status_id != 1) return false;
+        if (currentFilters.unit !== 'all' && op.unit_id != currentFilters.unit) return false;
+        if (currentFilters.dispense !== 'all' && op.dispense_type_id != currentFilters.dispense) return false;
+        
+        // البحث
+        if (currentFilters.search) {
+            const searchTerm = currentFilters.search.toLowerCase();
+            const searchFields = [
+                op.driver_name,
+                op.vehicle_type,
+                op.receipt_number.toString(),
+                op.unit_name || '',
+                op.purpose || '',
+                op.notes || ''
+            ].join(' ').toLowerCase();
+            
+            if (!searchFields.includes(searchTerm)) return false;
+        }
+        
+        return true;
+    });
+}
+
+// تحديث ترقيم الصفحات
+function updatePagination(totalItems) {
+    const totalPages = Math.ceil(totalItems / pageSize);
+    const pageNumbers = document.querySelector('.page-numbers');
+    
+    // تحديث أرقام الصفحات
+    pageNumbers.innerHTML = '';
+    for (let i = 1; i <= Math.min(5, totalPages); i++) {
+        const btn = document.createElement('button');
+        btn.className = `page-btn ${i === currentPage ? 'active' : ''}`;
+        btn.textContent = i;
+        btn.onclick = () => goToPage(i);
+        pageNumbers.appendChild(btn);
+    }
+    
+    // تحديث حالة أزرار التنقل
+    document.getElementById('prevBtn').disabled = currentPage === 1;
+    document.getElementById('nextBtn').disabled = currentPage === totalPages;
+}
+
+// تعيين فلتر
+function setFilter(type, value) {
+    currentFilters[type] = value;
+    currentPage = 1;
+    
+    // تحديث واجهة الفلاتر
+    updateFilterUI(type, value);
+    
+    // تطبيق الفلاتر
+    applyFilters();
+}
+
+// تحديث واجهة الفلاتر
+function updateFilterUI(type, value) {
+    if (type === 'status') {
+        // تحديث أزرار الحالة
+        document.querySelectorAll('.filter-btn[data-status]').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.querySelector(`.filter-btn[data-status="${value}"]`).classList.add('active');
+    } else if (type === 'unit') {
+        document.getElementById('unitFilter').value = value;
+    } else if (type === 'dispense') {
+        document.getElementById('dispenseFilter').value = value;
+    } else if (type === 'date') {
+        document.getElementById('dateFilter').value = value;
+    }
+}
+
+// إعادة تعيين الفلاتر
+function resetFilters() {
+    currentFilters = {
+        status: 'all',
+        unit: 'all',
+        dispense: 'all',
+        date: 'today',
+        search: ''
+    };
+    
+    // تحديث واجهة الفلاتر
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelector('.filter-btn[data-status="all"]').classList.add('active');
+    document.getElementById('unitFilter').value = 'all';
+    document.getElementById('dispenseFilter').value = 'all';
+    document.getElementById('dateFilter').value = 'today';
+    document.getElementById('searchInput').value = '';
+    
+    // تطبيق الفلاتر
+    applyFilters();
+}
+
+// الفلترة حسب الحالة
+function filterByStatus(status) {
+    setFilter('status', status);
+}
+
+// التنقل بين الصفحات
+function prevPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        applyFilters();
+    }
+}
+
+function nextPage() {
+    const totalItems = getFilteredOperations().length;
+    const totalPages = Math.ceil(totalItems / pageSize);
+    
+    if (currentPage < totalPages) {
+        currentPage++;
+        applyFilters();
+    }
+}
+
+function goToPage(page) {
+    currentPage = page;
+    applyFilters();
+}
+
+function changePageSize() {
+    pageSize = parseInt(document.getElementById('pageSize').value);
+    currentPage = 1;
+    applyFilters();
+}
+
+// عرض نموذج الصرف
+async function showDispenseModal(operationId) {
+    try {
+        const response = await fetch(`/api/operation/${operationId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const operation = data.operation;
+            
+            // تعبئة تفاصيل العملية
+            document.getElementById('operationId').value = operationId;
+            document.getElementById('operationDetails').innerHTML = `
+                <div class="info-item">
+                    <div class="info-label">رقم السند</div>
+                    <div class="info-value">#${operation.receipt_number}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">التاريخ</div>
+                    <div class="info-value">${operation.operation_date}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">الوحدة</div>
+                    <div class="info-value">${operation.unit_name || 'غير محدد'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">السائق</div>
+                    <div class="info-value">${operation.driver_name}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">المركبة</div>
+                    <div class="info-value">${operation.vehicle_type}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">نوع الصرف</div>
+                    <div class="info-value">${operation.dispense_name}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">الوقود</div>
+                    <div class="info-value">
+                        ${operation.petrol_quantity > 0 ? `<span class="petrol">${operation.petrol_quantity} لتر بترول</span><br>` : ''}
+                        ${operation.diesel_quantity > 0 ? `<span class="diesel">${operation.diesel_quantity} لتر ديزل</span>` : ''}
+                    </div>
+                </div>
+                ${operation.purpose ? `
+                <div class="info-item">
+                    <div class="info-label">الغرض</div>
+                    <div class="info-value">${operation.purpose}</div>
+                </div>
+                ` : ''}
+                ${operation.notes ? `
+                <div class="info-item">
+                    <div class="info-label">ملاحظات المدخل</div>
+                    <div class="info-value">${operation.notes}</div>
+                </div>
+                ` : ''}
+            `;
+            
+            // إظهار المودال
+            document.getElementById('dispenseModal').classList.add('active');
+        } else {
+            showError('تعذر تحميل بيانات العملية');
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل البيانات:', error);
+        showError('تعذر الاتصال بالخادم');
+    }
+}
+
+// إغلاق نموذج الصرف
+function closeDispenseModal() {
+    document.getElementById('dispenseModal').classList.remove('active');
+    document.getElementById('dispenseForm').reset();
+}
+
+// إرسال نموذج الصرف
+document.getElementById('dispenseForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    // التحقق من تأكيدات الصرف
+    const confirmQuantity = document.getElementById('confirm_quantity').checked;
+    const confirmVehicle = document.getElementById('confirm_vehicle').checked;
+    const confirmDocument = document.getElementById('confirm_document').checked;
+    
+    if (!confirmQuantity || !confirmVehicle || !confirmDocument) {
+        showError('يجب الموافقة على جميع بنود التأكيد');
+        return;
+    }
+    
+    const operationId = document.getElementById('operationId').value;
+    const dispenseNotes = document.getElementById('dispense_notes').value;
+    const operationOfficer = document.getElementById('operation_officer').value;
+    
+    // إظهار حالة التحميل
+    const dispenseBtn = document.getElementById('dispenseBtn');
+    const originalText = dispenseBtn.innerHTML;
+    dispenseBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الصرف...';
+    dispenseBtn.disabled = true;
+    
+    try {
+        const response = await fetch(`/api/dispense-operation/${operationId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                operation_officer: operationOfficer,
+                dispense_notes: dispenseNotes
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showSuccess('تم صرف السند بنجاح!');
+            closeDispenseModal();
+            refreshData();
+        } else {
+            showError(data.message || 'حدث خطأ أثناء الصرف');
+        }
+    } catch (error) {
+        console.error('خطأ في الصرف:', error);
+        showError('تعذر الاتصال بالخادم');
+    } finally {
+        dispenseBtn.innerHTML = originalText;
+        dispenseBtn.disabled = false;
+    }
+});
+
+// عرض تفاصيل العملية
+async function viewOperationDetails(operationId) {
+    try {
+        const response = await fetch(`/api/operation/${operationId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const operation = data.operation;
+            
+            // بناء محتوى التفاصيل
+            const detailsContent = `
+                <div class="operation-details">
+                    <div class="detail-section">
+                        <h4><i class="fas fa-info-circle"></i> المعلومات الأساسية</h4>
+                        <div class="detail-grid">
+                            <div class="detail-item">
+                                <strong>رقم السند:</strong>
+                                <span>#${operation.receipt_number}</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>تاريخ العملية:</strong>
+                                <span>${operation.operation_date}</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>الشهر:</strong>
+                                <span>${operation.month}</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>الوحدة:</strong>
+                                <span>${operation.unit_name || 'غير محدد'}</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>السائق:</strong>
+                                <span>${operation.driver_name}</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>المركبة:</strong>
+                                <span>${operation.vehicle_type}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h4><i class="fas fa-gas-pump"></i> تفاصيل الصرف</h4>
+                        <div class="detail-grid">
+                            <div class="detail-item">
+                                <strong>نوع الصرف:</strong>
+                                <span>${operation.dispense_name}</span>
+                            </div>
+                            ${operation.purpose ? `
+                            <div class="detail-item">
+                                <strong>الغرض:</strong>
+                                <span>${operation.purpose}</span>
+                            </div>
+                            ` : ''}
+                            <div class="detail-item">
+                                <strong>حالة السند:</strong>
+                                <span class="status-badge ${operation.receipt_status_id == 1 ? 'dispensed' : 'pending'}">
+                                    ${operation.status_name}
+                                </span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>المناوب بالمحروقات:</strong>
+                                <span>${operation.operation_officer || 'لم يصرف بعد'}</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>كمية البترول:</strong>
+                                <span class="petrol">${operation.petrol_quantity} لتر</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>كمية الديزل:</strong>
+                                <span class="diesel">${operation.diesel_quantity} لتر</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h4><i class="fas fa-history"></i> معلومات النظام</h4>
+                        <div class="detail-grid">
+                            <div class="detail-item">
+                                <strong>تم الإنشاء بواسطة:</strong>
+                                <span>${operation.user_name} (${operation.user_role})</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>وقت الإنشاء:</strong>
+                                <span>${operation.created_at}</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>آخر تحديث:</strong>
+                                <span>${operation.updated_at || operation.created_at}</span>
+                            </div>
+                            ${operation.last_updater ? `
+                            <div class="detail-item">
+                                <strong>آخر معدل:</strong>
+                                <span>${operation.last_updater}</span>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    
+                    ${operation.notes ? `
+                    <div class="detail-section">
+                        <h4><i class="fas fa-sticky-note"></i> ملاحظات</h4>
+                        <div class="notes-content">
+                            ${operation.notes}
+                        </div>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            document.getElementById('detailsContent').innerHTML = detailsContent;
+            document.getElementById('detailsModal').classList.add('active');
+        } else {
+            showError('تعذر تحميل التفاصيل');
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل التفاصيل:', error);
+        showError('تعذر الاتصال بالخادم');
+    }
+}
+
+// إغلاق نموذج التفاصيل
+function closeDetailsModal() {
+    document.getElementById('detailsModal').classList.remove('active');
+}
+
+// عرض الملاحظات
+function showNotes(notes) {
+    if (!notes || notes.trim() === '') {
+        showError('لا توجد ملاحظات');
+        return;
+    }
+    
+    document.getElementById('notesContent').innerHTML = `
+        <div class="notes-text">
+            ${notes}
+        </div>
+    `;
+    document.getElementById('notesModal').classList.add('active');
+}
+
+// إغلاق نموذج الملاحظات
+function closeNotesModal() {
+    document.getElementById('notesModal').classList.remove('active');
+}
+
+// طباعة السند
+function printReceipt(operationId) {
+    window.open(`/fuel/print-receipt/${operationId}`, '_blank');
+}
+
+// تصدير إلى Excel
+function exportToExcel() {
+    // يمكن استخدام مكتبة SheetJS أو إنشاء ملف CSV بسيط
+    const filteredOperations = getFilteredOperations();
+    
+    if (filteredOperations.length === 0) {
+        showError('لا توجد بيانات للتصدير');
+        return;
+    }
+    
+    // إنشاء بيانات CSV
+    let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+    
+    // العنوان
+    csvContent += "رقم السند,التاريخ,الوحدة,السائق,المركبة,نوع الصرف,الغرض,بترول (لتر),ديزل (لتر),حالة السند,المدخل,تاريخ الإنشاء\n";
+    
+    // البيانات
+    filteredOperations.forEach(op => {
+        const row = [
+            op.receipt_number,
+            op.operation_date,
+            op.unit_name || '',
+            op.driver_name,
+            op.vehicle_type,
+            op.dispense_name,
+            op.purpose || '',
+            op.petrol_quantity,
+            op.diesel_quantity,
+            op.status_name,
+            op.user_name,
+            op.created_at
+        ].map(field => `"${field}"`).join(',');
+        
+        csvContent += row + "\n";
+    });
+    
+    // تنزيل الملف
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `عمليات_المحروقات_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// تحديث البيانات
+function refreshData() {
+    location.reload();
+}
+
+// تحديث وقت الخادم
+function updateServerTime() {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('ar-SA');
+    document.querySelectorAll('.server-time').forEach(el => {
+        el.textContent = timeString;
+    });
+}
+
+// إظهار نموذج الصرف
+function showDispenseForm() {
+    // يمكن إضافة نموذج لإضافة عملية جديدة مباشرة
+    alert('ميزة إضافة عملية جديدة من قبل المناوب بالمحروقات قيد التطوير');
+}
+
+// عرض رسالة نجاح
+function showSuccess(message) {
+    // يمكن استخدام مكتبة إشعارات
+    alert('✓ ' + message);
+}
+
+// عرض رسالة خطأ
+function showError(message) {
+    // يمكن استخدام مكتبة إشعارات
+    alert('✗ ' + message);
+}
+
+// الهروب من HTML
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// تحديث وقت الخادم كل ثانية
+setInterval(updateServerTime, 1000);
+</script>
+{% endblock %}

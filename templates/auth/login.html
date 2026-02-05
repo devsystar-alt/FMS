@@ -1,0 +1,754 @@
+{% extends "layout.html" %}
+
+{% block title %}تسجيل الدخول{% endblock %}
+
+{% block content %}
+<div class="login-page">
+    <div class="login-container">
+        <div class="login-header">
+            <div class="login-logo">
+                <i class="fas fa-gas-pump"></i>
+            </div>
+            <h1>نظام إدارة المحروقات</h1>
+            <p class="login-subtitle">الرجاء إدخال بيانات الاعتماد الخاصة بك</p>
+        </div>
+
+        <form method="POST" action="{{ url_for('login') }}" class="login-form" id="loginForm">
+            <div class="form-group">
+                <label for="username" class="form-label">
+                    <i class="fas fa-user"></i> اسم المستخدم
+                </label>
+                <input type="text"
+                       id="username"
+                       name="username"
+                       class="form-control"
+                       placeholder="أدخل اسم المستخدم"
+                       required
+                       autocomplete="username"
+                       autofocus>
+                <div class="form-error" id="usernameError"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="password" class="form-label">
+                    <i class="fas fa-lock"></i> كلمة المرور
+                </label>
+                <div class="password-container">
+                    <input type="password"
+                           id="password"
+                           name="password"
+                           class="form-control"
+                           placeholder="أدخل كلمة المرور"
+                           required
+                           autocomplete="current-password">
+                    <button type="button" class="password-toggle" id="togglePassword">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+                <div class="form-error" id="passwordError"></div>
+            </div>
+
+            <div class="form-group remember-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="remember" id="remember">
+                    <span class="checkmark"></span>
+                    تذكرني
+                </label>
+                <a href="#" class="forgot-password">نسيت كلمة المرور؟</a>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block login-btn" id="loginBtn">
+                <i class="fas fa-sign-in-alt"></i>
+                <span id="loginText">تسجيل الدخول</span>
+                <div class="spinner hidden" id="loginSpinner"></div>
+            </button>
+
+            <div class="login-divider">
+                <span>أو</span>
+            </div>
+
+            <div class="role-buttons">
+                <button type="button" class="role-btn admin-btn" onclick="fillCredentials('admin')">
+                    <i class="fas fa-crown"></i>
+                    <span>مدير النظام</span>
+                </button>
+                <button type="button" class="role-btn sysadmin-btn" onclick="fillCredentials('sysadmin')">
+                    <i class="fas fa-cogs"></i>
+                    <span>مسؤول النظام</span>
+                </button>
+                <button type="button" class="role-btn ops-btn" onclick="fillCredentials('ops1')">
+                    <i class="fas fa-tasks"></i>
+                    <span>المناوب بالعمليات</span>
+                </button>
+                <button type="button" class="role-btn fuel-btn" onclick="fillCredentials('fuel1')">
+                    <i class="fas fa-gas-pump"></i>
+                    <span>المناوب بالمحروقات</span>
+                </button>
+            </div>
+        </form>
+
+        <div class="login-footer">
+            <div class="system-info">
+                <p><i class="fas fa-info-circle"></i> نظام إدارة محروقات متكامل</p>
+                <p class="version">الإصدار 1.0.0 | آخر تحديث: {{ current_year }}</p>
+            </div>
+
+            <div class="credentials-info">
+                <h4><i class="fas fa-key"></i> بيانات الدخول الافتراضية:</h4>
+                <div class="credentials-grid">
+                    <div class="credential-card">
+                        <div class="credential-role admin">
+                            <i class="fas fa-crown"></i>
+                            <span>مدير النظام</span>
+                        </div>
+                        <div class="credential-details">
+                            <p><strong>المستخدم:</strong> admin</p>
+                            <p><strong>كلمة المرور:</strong> admin123</p>
+                        </div>
+                    </div>
+
+                    <div class="credential-card">
+                        <div class="credential-role sysadmin">
+                            <i class="fas fa-cogs"></i>
+                            <span>مسؤول النظام</span>
+                        </div>
+                        <div class="credential-details">
+                            <p><strong>المستخدم:</strong> sysadmin</p>
+                            <p><strong>كلمة المرور:</strong> sysadmin123</p>
+                        </div>
+                    </div>
+
+                    <div class="credential-card">
+                        <div class="credential-role ops">
+                            <i class="fas fa-tasks"></i>
+                            <span>المناوب بالعمليات</span>
+                        </div>
+                        <div class="credential-details">
+                            <p><strong>المستخدم:</strong> ops1</p>
+                            <p><strong>كلمة المرور:</strong> ops123</p>
+                        </div>
+                    </div>
+
+                    <div class="credential-card">
+                        <div class="credential-role fuel">
+                            <i class="fas fa-gas-pump"></i>
+                            <span>المناوب بالمحروقات</span>
+                        </div>
+                        <div class="credential-details">
+                            <p><strong>المستخدم:</strong> fuel1</p>
+                            <p><strong>كلمة المرور:</strong> fuel123</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="security-notice">
+                <p><i class="fas fa-shield-alt"></i> <strong>تنبيه أمني:</strong> يرجى تغيير كلمة المرور بعد أول دخول</p>
+                <p><i class="fas fa-user-secret"></i> حافظ على سرية بيانات الدخول الخاصة بك</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* تصميم صفحة تسجيل الدخول */
+.login-page {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.login-container {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    width: 100%;
+    max-width: 500px;
+    overflow: hidden;
+    animation: slideUp 0.6s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.login-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #4a6491 100%);
+    color: white;
+    padding: 40px 30px;
+    text-align: center;
+}
+
+.login-logo {
+    font-size: 3rem;
+    margin-bottom: 15px;
+    color: #4CAF50;
+}
+
+.login-header h1 {
+    margin: 0 0 10px 0;
+    font-size: 1.8rem;
+}
+
+.login-subtitle {
+    opacity: 0.9;
+    font-size: 1.1rem;
+    margin: 0;
+}
+
+.login-form {
+    padding: 30px;
+}
+
+.form-group {
+    margin-bottom: 25px;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 8px;
+    color: #2c3e50;
+    font-weight: bold;
+    font-size: 0.95rem;
+}
+
+.form-label i {
+    margin-left: 8px;
+    color: #4CAF50;
+}
+
+.form-control {
+    width: 100%;
+    padding: 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    font-size: 1rem;
+    transition: all 0.3s;
+    background: #f8f9fa;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #4CAF50;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+}
+
+.password-container {
+    position: relative;
+}
+
+.password-toggle {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 5px;
+}
+
+.password-toggle:hover {
+    color: #4CAF50;
+}
+
+.form-error {
+    color: #e74c3c;
+    font-size: 0.9rem;
+    margin-top: 5px;
+    min-height: 20px;
+}
+
+.remember-group {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    color: #555;
+    font-size: 0.95rem;
+}
+
+.checkbox-label input {
+    display: none;
+}
+
+.checkmark {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+    margin-left: 10px;
+    position: relative;
+    transition: all 0.3s;
+}
+
+.checkbox-label input:checked + .checkmark {
+    background: #4CAF50;
+    border-color: #4CAF50;
+}
+
+.checkbox-label input:checked + .checkmark::after {
+    content: '✓';
+    position: absolute;
+    color: white;
+    font-size: 14px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.forgot-password {
+    color: #3498db;
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.forgot-password:hover {
+    text-decoration: underline;
+}
+
+.btn-block {
+    width: 100%;
+}
+
+.login-btn {
+    padding: 18px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    border-radius: 10px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: all 0.3s;
+}
+
+.login-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+}
+
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-top: 3px solid white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.hidden {
+    display: none;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.login-divider {
+    text-align: center;
+    margin: 25px 0;
+    position: relative;
+}
+
+.login-divider::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: 0;
+    left: 0;
+    height: 1px;
+    background: #eee;
+}
+
+.login-divider span {
+    background: white;
+    padding: 0 15px;
+    color: #666;
+    font-size: 0.9rem;
+    position: relative;
+}
+
+.role-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.role-btn {
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background: #f8f9fa;
+    color: #2c3e50;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s;
+    font-size: 0.9rem;
+    font-weight: bold;
+}
+
+.role-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+
+.role-btn i {
+    font-size: 1.2rem;
+}
+
+.admin-btn:hover {
+    background: linear-gradient(135deg, #f39c12, #e74c3c);
+    color: white;
+}
+
+.sysadmin-btn:hover {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+}
+
+.ops-btn:hover {
+    background: linear-gradient(135deg, #2ecc71, #27ae60);
+    color: white;
+}
+
+.fuel-btn:hover {
+    background: linear-gradient(135deg, #9b59b6, #8e44ad);
+    color: white;
+}
+
+.login-footer {
+    padding: 25px;
+    background: #f8f9fa;
+    border-top: 1px solid #eee;
+}
+
+.system-info {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #555;
+}
+
+.system-info i {
+    color: #4CAF50;
+    margin-left: 5px;
+}
+
+.version {
+    font-size: 0.9rem;
+    color: #777;
+    margin-top: 5px;
+}
+
+.credentials-info h4 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+    text-align: center;
+    font-size: 1.1rem;
+}
+
+.credentials-info h4 i {
+    color: #4CAF50;
+    margin-left: 8px;
+}
+
+.credentials-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.credential-card {
+    background: white;
+    border-radius: 10px;
+    padding: 15px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    transition: transform 0.3s;
+}
+
+.credential-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.credential-role {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+.credential-role.admin {
+    background: rgba(243, 156, 18, 0.1);
+    color: #f39c12;
+}
+
+.credential-role.sysadmin {
+    background: rgba(52, 152, 219, 0.1);
+    color: #3498db;
+}
+
+.credential-role.ops {
+    background: rgba(46, 204, 113, 0.1);
+    color: #27ae60;
+}
+
+.credential-role.fuel {
+    background: rgba(155, 89, 182, 0.1);
+    color: #9b59b6;
+}
+
+.credential-details {
+    font-size: 0.85rem;
+    color: #555;
+}
+
+.credential-details p {
+    margin: 5px 0;
+}
+
+.credential-details strong {
+    color: #2c3e50;
+}
+
+.security-notice {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 10px;
+    padding: 15px;
+    margin-top: 20px;
+}
+
+.security-notice p {
+    margin: 8px 0;
+    color: #856404;
+    font-size: 0.9rem;
+}
+
+.security-notice i {
+    margin-left: 8px;
+}
+
+/* تصميم متجاوب */
+@media (max-width: 768px) {
+    .login-container {
+        margin: 20px;
+    }
+
+    .role-buttons {
+        grid-template-columns: 1fr;
+    }
+
+    .credentials-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .login-form {
+        padding: 20px;
+    }
+}
+
+@media (max-width: 480px) {
+    .login-header {
+        padding: 30px 20px;
+    }
+
+    .login-header h1 {
+        font-size: 1.5rem;
+    }
+
+    .remember-group {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+}
+</style>
+
+<script>
+// دالة لملء بيانات الاعتماد
+function fillCredentials(username) {
+    const credentials = {
+        'admin': { username: 'admin', password: 'admin123' },
+        'sysadmin': { username: 'sysadmin', password: 'sysadmin123' },
+        'ops1': { username: 'ops1', password: 'ops123' },
+        'fuel1': { username: 'fuel1', password: 'fuel123' }
+    };
+
+    const cred = credentials[username];
+    if (cred) {
+        document.getElementById('username').value = cred.username;
+        document.getElementById('password').value = cred.password;
+
+        // إضافة تأثير مرئي
+        highlightField('username');
+        highlightField('password');
+
+        // إظهار رسالة
+        showRoleMessage(username);
+    }
+}
+
+// إضاءة الحقل عند ملئه
+function highlightField(fieldId) {
+    const field = document.getElementById(fieldId);
+    field.style.borderColor = '#4CAF50';
+    field.style.backgroundColor = '#e8f5e9';
+
+    setTimeout(() => {
+        field.style.borderColor = '#4CAF50';
+        field.style.backgroundColor = '';
+    }, 1000);
+}
+
+// إظهار رسالة الدور
+function showRoleMessage(role) {
+    const roleNames = {
+        'admin': 'مدير النظام',
+        'sysadmin': 'مسؤول النظام',
+        'ops1': 'المناوب بالعمليات',
+        'fuel1': 'المناوب بالمحروقات'
+    };
+
+    const roleName = roleNames[role];
+    alert(`تم تعبئة بيانات ${roleName}. اضغط على زر "تسجيل الدخول" للمتابعة.`);
+}
+
+// إظهار/إخفاء كلمة المرور
+document.getElementById('togglePassword').addEventListener('click', function() {
+    const passwordInput = document.getElementById('password');
+    const icon = this.querySelector('i');
+
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+    } else {
+        passwordInput.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+    }
+});
+
+// التحقق من النموذج
+document.getElementById('loginForm').addEventListener('submit', function(e) {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const loginBtn = document.getElementById('loginBtn');
+    const loginText = document.getElementById('loginText');
+    const loginSpinner = document.getElementById('loginSpinner');
+
+    // إعادة تعيين الأخطاء
+    document.getElementById('usernameError').textContent = '';
+    document.getElementById('passwordError').textContent = '';
+
+    let isValid = true;
+
+    // التحقق من اسم المستخدم
+    if (!username) {
+        document.getElementById('usernameError').textContent = 'يرجى إدخال اسم المستخدم';
+        isValid = false;
+    }
+
+    // التحقق من كلمة المرور
+    if (!password) {
+        document.getElementById('passwordError').textContent = 'يرجى إدخال كلمة المرور';
+        isValid = false;
+    } else if (password.length < 6) {
+        document.getElementById('passwordError').textContent = 'كلمة المرور يجب أن تكون 6 أحرف على الأقل';
+        isValid = false;
+    }
+
+    if (!isValid) {
+        e.preventDefault();
+        return;
+    }
+
+    // إظهار حالة التحميل
+    loginText.textContent = 'جاري تسجيل الدخول...';
+    loginSpinner.classList.remove('hidden');
+    loginBtn.disabled = true;
+
+    // إضافة تأثير تأخير بسيط
+    setTimeout(() => {
+        // النموذج سيتم إرساله تلقائياً
+    }, 500);
+});
+
+// إضافة سنة حالية
+document.addEventListener('DOMContentLoaded', function() {
+    const currentYear = new Date().getFullYear();
+    document.querySelector('.version').innerHTML =
+        document.querySelector('.version').innerHTML.replace('{{ current_year }}', currentYear);
+
+    // إضافة تأثيرات عند التحميل
+    const formGroups = document.querySelectorAll('.form-group');
+    formGroups.forEach((group, index) => {
+        group.style.animation = `fadeInUp 0.5s ease-out ${index * 0.1}s both`;
+    });
+
+    // إضافة تأثير للبطاقات
+    const credentialCards = document.querySelectorAll('.credential-card');
+    credentialCards.forEach((card, index) => {
+        card.style.animation = `slideInRight 0.5s ease-out ${index * 0.1}s both`;
+    });
+});
+
+// أنيميشن إضافية
+const style = document.createElement('style');
+style.textContent = `
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

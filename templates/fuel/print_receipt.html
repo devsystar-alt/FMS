@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>سند صرف وقود #{{ operation.receipt_number }}</title>
+    <style>
+        @media print {
+            @page {
+                size: A4;
+                margin: 0;
+            }
+
+            body {
+                margin: 0;
+                padding: 20px;
+                font-family: 'Arial', sans-serif;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+        }
+
+        .receipt-container {
+            border: 2px solid #000;
+            padding: 30px;
+            position: relative;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #000;
+            padding-bottom: 20px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            color: #2c3e50;
+        }
+
+        .header .subtitle {
+            font-size: 18px;
+            color: #666;
+            margin-top: 10px;
+        }
+
+        .receipt-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px dashed #eee;
+        }
+
+        .detail-label {
+            font-weight: bold;
+            color: #666;
+        }
+
+        .detail-value {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .fuel-details {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .fuel-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            font-size: 18px;
+        }
+
+        .fuel-label {
+            font-weight: bold;
+        }
+
+        .petrol { color: #e74c3c; }
+        .diesel { color: #3498db; }
+
+        .total {
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            margin: 20px 0;
+            padding: 20px;
+            background: #2c3e50;
+            color: white;
+            border-radius: 8px;
+        }
+
+        .signatures {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+            margin-top: 50px;
+            padding-top: 30px;
+            border-top: 2px solid #000;
+        }
+
+        .signature-box {
+            text-align: center;
+        }
+
+        .signature-line {
+            width: 100%;
+            height: 1px;
+            background: #000;
+            margin: 40px 0 10px 0;
+        }
+
+        .stamp {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            width: 150px;
+            height: 150px;
+            border: 2px solid #e74c3c;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform: rotate(-15deg);
+            opacity: 0.8;
+        }
+
+        .stamp-text {
+            text-align: center;
+            font-weight: bold;
+            color: #e74c3c;
+        }
+
+        .print-actions {
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 0 10px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            background: #2980b9;
+        }
+
+        .btn-print {
+            background: #27ae60;
+        }
+
+        .btn-print:hover {
+            background: #219653;
+        }
+    </style>
+</head>
+<body>
+    <div class="receipt-container">
+        <!-- الختم -->
+        <div class="stamp">
+            <div class="stamp-text">
+                تم الصرف<br>
+                {{ operation.operation_officer }}<br>
+                {{ operation.updated_at[:10] if operation.updated_at else operation.created_at[:10] }}
+            </div>
+        </div>
+
+        <!-- الرأس -->
+        <div class="header">
+            <h1>سند صرف وقود</h1>
+            <div class="subtitle">نظام إدارة المحروقات</div>
+        </div>
+
+        <!-- معلومات السند -->
+        <div class="receipt-info">
+            <div class="info-item">
+                <div class="info-label">رقم السند</div>
+                <div class="info-value">#{{ operation.receipt_number }}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">تاريخ العملية</div>
+                <div class="info-value">{{ operation.operation_date }}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">حالة السند</div>
+                <div class="info-value" style="color: #27ae60;">منصرف</div>
+            </div>
+        </div>
+
+        <!-- تفاصيل العملية -->
+        <div class="section">
+            <h2 class="section-title">تفاصيل العملية</h2>
+            <div class="details-grid">
+                <div class="detail-row">
+                    <span class="detail-label">الوحدة:</span>
+                    <span class="detail-value">{{ operation.unit_name or 'غير محدد' }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">السائق:</span>
+                    <span class="detail-value">{{ operation.driver_name }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">المركبة:</span>
+                    <span class="detail-value">{{ operation.vehicle_type }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">نوع الصرف:</span>
+                    <span class="detail-value">{{ operation.dispense_name }}</span>
+                </div>
+                {% if operation.purpose %}
+                <div class="detail-row">
+                    <span class="detail-label">الغرض:</span>
+                    <span class="detail-value">{{ operation.purpose }}</span>
+                </div>
+                {% endif %}
+                <div class="detail-row">
+                    <span class="detail-label">المناوب:</span>
+                    <span class="detail-value">{{ operation.operation_officer or 'غير محدد' }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- تفاصيل الوقود -->
+        <div class="section">
+            <h2 class="section-title">تفاصيل الوقود</h2>
+            <div class="fuel-details">
+                {% if operation.petrol_quantity > 0 %}
+                <div class="fuel-item">
+                    <span class="fuel-label petrol">بترول:</span>
+                    <span class="fuel-value petrol">{{ "%.2f"|format(operation.petrol_quantity) }} لتر</span>
+                </div>
+                {% endif %}
+
+                {% if operation.diesel_quantity > 0 %}
+                <div class="fuel-item">
+                    <span class="fuel-label diesel">ديزل:</span>
+                    <span class="fuel-value diesel">{{ "%.2f"|format(operation.diesel_quantity) }} لتر</span>
+                </div>
+                {% endif %}
+
+                {% if operation.petrol_quantity > 0 or operation.diesel_quantity > 0 %}
+                <div class="total">
+                    الإجمالي: {{ "%.2f"|format(operation.petrol_quantity + operation.diesel_quantity) }} لتر
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- معلومات النظام -->
+        <div class="section">
+            <h2 class="section-title">معلومات النظام</h2>
+            <div class="details-grid">
+                <div class="detail-row">
+                    <span class="detail-label">تم الإنشاء بواسطة:</span>
+                    <span class="detail-value">{{ operation.user_name }} ({{ operation.user_role }})</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">تاريخ الإنشاء:</span>
+                    <span class="detail-value">{{ operation.created_at[:16] }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">آخر تحديث:</span>
+                    <span class="detail-value">{{ operation.updated_at[:16] if operation.updated_at else operation.created_at[:16] }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- التوقيعات -->
+        <div class="signatures">
+            <div class="signature-box">
+                <div>توقيع السائق</div>
+                <div class="signature-line"></div>
+                <div>{{ operation.driver_name }}</div>
+            </div>
+
+            <div class="signature-box">
+                <div>توقيع المناوب</div>
+                <div class="signature-line"></div>
+                <div>{{ operation.operation_officer or 'مناوب المحروقات' }}</div>
+            </div>
+
+            <div class="signature-box">
+                <div>ختم الوحدة</div>
+                <div class="signature-line"></div>
+                <div>{{ operation.unit_name or 'الوحدة' }}</div>
+            </div>
+        </div>
+
+        {% if operation.notes %}
+        <div class="section">
+            <h2 class="section-title">ملاحظات</h2>
+            <div style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                {{ operation.notes }}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- أزرار الإجراءات -->
+    <div class="print-actions no-print">
+        <button class="btn btn-print" onclick="window.print()">
+            <i class="fas fa-print"></i> طباعة السند
+        </button>
+        <a href="{{ url_for('fuel_dashboard') }}" class="btn">
+            <i class="fas fa-arrow-right"></i> العودة للوحة التحكم
+        </a>
+    </div>
+
+    <script>
+        // الطباعة التلقائية
+        window.onload = function() {
+            setTimeout(function() {
+                window.print();
+            }, 1000);
+        };
+    </script>
+</body>
+</html>

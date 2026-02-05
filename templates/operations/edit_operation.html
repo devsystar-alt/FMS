@@ -1,0 +1,346 @@
+{% extends "layout.html" %}
+
+{% block title %}تعديل العملية{% endblock %}
+
+{% block content %}
+<div class="edit-operation-page">
+    <div class="page-header">
+        <h1><i class="fas fa-edit"></i> تعديل العملية #{{ operation.receipt_number }}</h1>
+        <a href="{{ url_for('operations_dashboard') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-right"></i> العودة للوحة التحكم
+        </a>
+    </div>
+
+    <div class="edit-form-container">
+        <form id="editOperationForm">
+            <!-- المعلومات الحالية -->
+            <div class="current-info">
+                <h3><i class="fas fa-info-circle"></i> المعلومات الحالية</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <strong>حالة السند:</strong>
+                        <span class="status-badge status-{{ 'منصرف' if operation.receipt_status_id == 1 else 'غير-منصرف' }}">
+                            {{ 'منصرف' if operation.receipt_status_id == 1 else 'غير منصرف' }}
+                        </span>
+                    </div>
+                    <div class="info-item">
+                        <strong>تاريخ الإنشاء:</strong>
+                        <span>{{ operation.created_at[:16] }}</span>
+                    </div>
+                    <div class="info-item">
+                        <strong>آخر تحديث:</strong>
+                        <span>{{ operation.updated_at[:16] if operation.updated_at else operation.created_at[:16] }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- نموذج التعديل -->
+            <div class="form-section">
+                <h3><i class="fas fa-edit"></i> تعديل البيانات</h3>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="operation_date">تاريخ العملية *</label>
+                        <input type="date" id="operation_date" name="operation_date"
+                               class="form-control" required
+                               value="{{ operation.operation_date }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="receipt_number">رقم السند</label>
+                        <input type="text" id="receipt_number" class="form-control"
+                               value="{{ operation.receipt_number }}" readonly>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="driver_name">اسم السائق (على السند) *</label>
+                        <input type="text" id="driver_name" name="driver_name"
+                               class="form-control" required
+                               value="{{ operation.driver_name }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="vehicle_type">نوع المركبة *</label>
+                        <input type="text" id="vehicle_type" name="vehicle_type"
+                               class="form-control" required
+                               value="{{ operation.vehicle_type }}">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="dispense_type_id">نوع الصرف *</label>
+                        <select id="dispense_type_id" name="dispense_type_id" class="form-control" required>
+                            {% for type in dispense_types %}
+                            <option value="{{ type.id }}"
+                                    {% if type.id == operation.dispense_type_id %}selected{% endif %}>
+                                {{ type.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group" id="unitField">
+                        <label for="unit_id">الوحدة</label>
+                        <select id="unit_id" name="unit_id" class="form-control">
+                            <option value="">اختر الوحدة</option>
+                            {% for unit in units %}
+                            <option value="{{ unit.id }}"
+                                    {% if unit.id == operation.unit_id %}selected{% endif %}>
+                                {{ unit.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group" id="purposeField">
+                    <label for="purpose">الغرض</label>
+                    <input type="text" id="purpose" name="purpose" class="form-control"
+                           value="{{ operation.purpose or '' }}">
+                </div>
+
+                <div class="form-group">
+                    <label>نوع وكمية الوقود *</label>
+                    <div class="fuel-inputs">
+                        <div class="fuel-input">
+                            <label for="petrol_quantity">
+                                <i class="fas fa-fire petrol-icon"></i> كمية البترول (لتر)
+                            </label>
+                            <input type="number" id="petrol_quantity" name="petrol_quantity"
+                                   class="form-control" min="0" step="0.01" required
+                                   value="{{ operation.petrol_quantity }}">
+                        </div>
+                        <div class="fuel-input">
+                            <label for="diesel_quantity">
+                                <i class="fas fa-oil-can diesel-icon"></i> كمية الديزل (لتر)
+                            </label>
+                            <input type="number" id="diesel_quantity" name="diesel_quantity"
+                                   class="form-control" min="0" step="0.01" required
+                                   value="{{ operation.diesel_quantity }}">
+                        </div>
+                    </div>
+                    <div class="form-error" id="fuelError"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="notes">ملاحظات</label>
+                    <textarea id="notes" name="notes" class="form-control" rows="3">{{ operation.notes or '' }}</textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="window.history.back()">
+                        إلغاء
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                        <i class="fas fa-save"></i> حفظ التعديلات
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.edit-operation-page {
+    padding: 20px;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #eee;
+}
+
+.page-header h1 {
+    color: #2c3e50;
+    margin: 0;
+}
+
+.edit-form-container {
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.current-info {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+    border-right: 4px solid #f39c12;
+}
+
+.current-info h3 {
+    margin: 0 0 15px 0;
+    color: #2c3e50;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.info-item strong {
+    color: #555;
+    font-size: 0.9rem;
+}
+
+.form-section {
+    margin-top: 30px;
+}
+
+.form-section h3 {
+    color: #2c3e50;
+    margin: 0 0 20px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+/* يمكن إضافة المزيد من الأنماط حسب الحاجة */
+</style>
+
+<script>
+// التحقق من نوع الصرف عند التحميل
+document.addEventListener('DOMContentLoaded', function() {
+    const dispenseType = document.getElementById('dispense_type_id');
+    const unitField = document.getElementById('unitField');
+    const purposeField = document.getElementById('purposeField');
+
+    // مخصص (1) - إظهار الوحدة وإخفاء الغرض
+    // بلاغ (2) أو أوامر (3) - إخفاء الوحدة وإظهار الغرض
+    if (dispenseType.value === '1') {
+        purposeField.style.display = 'none';
+    } else {
+        unitField.style.display = 'none';
+    }
+
+    // إضافة مستمع لتغيير نوع الصرف
+    dispenseType.addEventListener('change', function() {
+        if (this.value === '1') {
+            unitField.style.display = 'block';
+            purposeField.style.display = 'none';
+        } else {
+            unitField.style.display = 'none';
+            purposeField.style.display = 'block';
+        }
+    });
+
+    // إرسال النموذج
+    document.getElementById('editOperationForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        // التحقق من صحة البيانات
+        if (!validateEditForm()) {
+            return false;
+        }
+
+        // جمع البيانات
+        const formData = {
+            operation_date: document.getElementById('operation_date').value,
+            driver_name: document.getElementById('driver_name').value,
+            vehicle_type: document.getElementById('vehicle_type').value,
+            dispense_type_id: document.getElementById('dispense_type_id').value,
+            unit_id: document.getElementById('unit_id').value || null,
+            purpose: document.getElementById('purpose').value || '',
+            petrol_quantity: parseFloat(document.getElementById('petrol_quantity').value) || 0,
+            diesel_quantity: parseFloat(document.getElementById('diesel_quantity').value) || 0,
+            notes: document.getElementById('notes').value
+        };
+
+        // إظهار حالة التحميل
+        const submitBtn = document.getElementById('submitBtn');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الحفظ...';
+        submitBtn.disabled = true;
+
+        try {
+            const response = await fetch('/api/update-operation/{{ operation.id }}', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                alert('تم تحديث العملية بنجاح');
+                window.location.href = '/operations/dashboard';
+            } else {
+                alert('خطأ: ' + data.message);
+            }
+        } catch (error) {
+            console.error('خطأ في تحديث البيانات:', error);
+            alert('تعذر الاتصال بالخادم');
+        } finally {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
+    });
+});
+
+// التحقق من صحة النموذج
+function validateEditForm() {
+    let isValid = true;
+
+    // التحقق من اسم السائق
+    const driverName = document.getElementById('driver_name').value.trim();
+    if (!driverName) {
+        showFieldError('driver_name', 'اسم السائق مطلوب');
+        isValid = false;
+    }
+
+    // التحقق من نوع المركبة
+    const vehicleType = document.getElementById('vehicle_type').value.trim();
+    if (!vehicleType) {
+        showFieldError('vehicle_type', 'نوع المركبة مطلوب');
+        isValid = false;
+    }
+
+    // التحقق من كمية الوقود
+    const petrol = parseFloat(document.getElementById('petrol_quantity').value) || 0;
+    const diesel = parseFloat(document.getElementById('diesel_quantity').value) || 0;
+    const fuelError = document.getElementById('fuelError');
+
+    if (petrol === 0 && diesel === 0) {
+        fuelError.textContent = 'يجب إدخال كمية بترول أو ديزل';
+        isValid = false;
+    } else {
+        fuelError.textContent = '';
+    }
+
+    return isValid;
+}
+
+// عرض خطأ للحقل
+function showFieldError(fieldId, message) {
+    const field = document.getElementById(fieldId);
+    const errorDiv = document.getElementById(fieldId + 'Error') || field.nextElementSibling;
+
+    if (errorDiv && errorDiv.classList.contains('form-error')) {
+        errorDiv.textContent = message;
+        field.style.borderColor = '#e74c3c';
+
+        // إزالة الخطأ عند التصحيح
+        field.addEventListener('input', function() {
+            errorDiv.textContent = '';
+            field.style.borderColor = '#e0e0e0';
+        }, { once: true });
+    }
+}
+</script>
+{% endblock %}
