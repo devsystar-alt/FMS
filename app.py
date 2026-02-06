@@ -14,6 +14,25 @@ app.secret_key = 'fuel-management-system-secret-key-2024'
 app.config['SESSION_TYPE'] = 'filesystem'
 bcrypt = Bcrypt(app)
 
+
+# فلتر escapejs مخصص
+@app.template_filter('escapejs')
+def escapejs_filter(value):
+    """فلتر لتهريب النصوص لاستخدامها في JavaScript"""
+    if value is None:
+        return ''
+    # تحويل القيمة إلى سلسلة نصية
+    value = str(value)
+    # تهريب الأحرف الخاصة
+    value = value.replace('\\', '\\\\')
+    value = value.replace("'", r"\'")
+    value = value.replace('"', r'\"')
+    value = value.replace('\n', r'\n')
+    value = value.replace('\r', r'\r')
+    value = value.replace('\t', r'\t')
+    value = value.replace('\f', r'\f')
+    return value
+
 # دالة للاتصال بقاعدة البيانات
 def get_db_connection():
     """الحصول على اتصال بقاعدة البيانات"""
@@ -709,7 +728,7 @@ def operations_dashboard():
     """لوحة تحكم مناوب العمليات"""
     conn = get_db_connection()
 
-    # تاريخ اليوم
+    # تاريخ اليوم والشهر
     today = datetime.now().strftime('%Y-%m-%d')
     current_month = datetime.now().strftime('%Y-%m')
 
@@ -723,6 +742,12 @@ def operations_dashboard():
 
     # تحويل current_unit إلى dict إذا كان موجوداً
     current_unit_dict = dict(current_unit) if current_unit else None
+
+    # الحصول على أعلى رقم سند
+    max_receipt_result = conn.execute(
+        'SELECT COALESCE(MAX(receipt_number), 1000) FROM fuel_operations'
+    ).fetchone()
+    max_receipt_number = max_receipt_result[0] if max_receipt_result else 1000
 
     # إحصائيات الوحدة
     unit_stats = conn.execute('''
@@ -840,9 +865,8 @@ def operations_dashboard():
                            units=units,
                            dispense_types=dispense_types,
                            today=today,
-                           current_month=current_month)
-
-
+                           current_month=current_month,
+                           max_receipt_number=max_receipt_number)  # إضافة هذا المتغير
 
 # ============================================
 # API لتحديث العملية
