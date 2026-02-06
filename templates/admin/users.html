@@ -1,0 +1,1012 @@
+<!-- templates/admin/users.html -->
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة المستخدمين - نظام إدارة المحروقات</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+    
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+            --light-color: #ecf0f1;
+            --dark-color: #2c3e50;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        
+        .sidebar {
+            background: linear-gradient(180deg, var(--primary-color) 0%, #1a2530 100%);
+            min-height: 100vh;
+            box-shadow: 3px 0 10px rgba(0,0,0,0.1);
+            position: fixed;
+            right: 0;
+            top: 0;
+            z-index: 1000;
+        }
+        
+        .main-content {
+            margin-right: 250px;
+            padding: 20px;
+        }
+        
+        .sidebar .nav-link {
+            color: #ddd;
+            padding: 12px 20px;
+            margin: 5px 0;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active {
+            background-color: rgba(255,255,255,0.1);
+            color: white;
+            text-decoration: none;
+        }
+        
+        .sidebar .nav-link i {
+            width: 25px;
+            text-align: center;
+            margin-left: 10px;
+        }
+        
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            transition: transform 0.3s ease;
+            margin-bottom: 20px;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .card-header {
+            background-color: white;
+            border-bottom: 2px solid var(--light-color);
+            font-weight: 600;
+            padding: 15px 20px;
+        }
+        
+        .user-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--secondary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+        
+        .badge-role {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .badge-admin {
+            background-color: rgba(231, 76, 60, 0.1);
+            color: var(--danger-color);
+            border: 1px solid var(--danger-color);
+        }
+        
+        .badge-system {
+            background-color: rgba(52, 152, 219, 0.1);
+            color: var(--secondary-color);
+            border: 1px solid var(--secondary-color);
+        }
+        
+        .badge-operations {
+            background-color: rgba(243, 156, 18, 0.1);
+            color: var(--warning-color);
+            border: 1px solid var(--warning-color);
+        }
+        
+        .badge-fuel {
+            background-color: rgba(46, 204, 113, 0.1);
+            color: var(--success-color);
+            border: 1px solid var(--success-color);
+        }
+        
+        .status-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-left: 5px;
+        }
+        
+        .status-active {
+            background-color: var(--success-color);
+        }
+        
+        .status-inactive {
+            background-color: var(--danger-color);
+        }
+        
+        .btn-action {
+            padding: 5px 10px;
+            margin: 0 3px;
+            border-radius: 5px;
+            font-size: 0.85rem;
+        }
+        
+        .search-box {
+            position: relative;
+        }
+        
+        .search-box input {
+            padding-right: 40px;
+        }
+        
+        .search-box i {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #999;
+        }
+        
+        .modal-header {
+            background: var(--primary-color);
+            color: white;
+            border-radius: 10px 10px 0 0;
+        }
+        
+        .form-label {
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .required::after {
+            content: " *";
+            color: var(--danger-color);
+        }
+        
+        @media (max-width: 992px) {
+            .sidebar {
+                width: 100%;
+                position: relative;
+                min-height: auto;
+            }
+            
+            .main-content {
+                margin-right: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar w-250">
+        <div class="p-4">
+            <h4 class="text-white mb-4 text-center">
+                <i class="fas fa-gas-pump"></i> نظام المحروقات
+            </h4>
+            <div class="user-info text-center mb-4">
+                <div class="user-avatar mx-auto mb-2">
+                    {{ session.user_name[0] if session.user_name else 'A' }}
+                </div>
+                <h6 class="text-white mb-1">{{ session.user_name }}</h6>
+                <small class="text-light">{{ session.user_role }}</small>
+            </div>
+        </div>
+        
+        <nav class="nav flex-column px-3">
+            <a href="{{ url_for('admin_dashboard') }}" class="nav-link">
+                <i class="fas fa-tachometer-alt"></i> لوحة التحكم
+            </a>
+            <a href="{{ url_for('admin_users') }}" class="nav-link active">
+                <i class="fas fa-users"></i> إدارة المستخدمين
+            </a>
+            <a href="{{ url_for('admin_operations') }}" class="nav-link">
+                <i class="fas fa-clipboard-list"></i> العمليات
+            </a>
+            <a href="{{ url_for('admin_reports') }}" class="nav-link">
+                <i class="fas fa-chart-bar"></i> التقارير
+            </a>
+            <hr class="text-light mx-3">
+            <a href="{{ url_for('dashboard') }}" class="nav-link">
+                <i class="fas fa-home"></i> الرئيسية
+            </a>
+            <a href="{{ url_for('logout') }}" class="nav-link text-danger">
+                <i class="fas fa-sign-out-alt"></i> تسجيل الخروج
+            </a>
+        </nav>
+        
+        <div class="sidebar-footer p-3 text-center text-light">
+            <small>الإصدار 1.0.0</small>
+        </div>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Header -->
+        <div class="header">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-1">
+                        <i class="fas fa-users text-primary me-2"></i> إدارة المستخدمين
+                    </h4>
+                    <p class="text-muted mb-0">إدارة حسابات المستخدمين في النظام</p>
+                </div>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                    <i class="fas fa-user-plus me-2"></i> إضافة مستخدم جديد
+                </button>
+            </div>
+        </div>
+        
+        <!-- Stats Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="bg-primary rounded p-3 me-3">
+                                <i class="fas fa-users text-white fa-2x"></i>
+                            </div>
+                            <div>
+                                <h4 class="mb-0">{{ users|length }}</h4>
+                                <p class="text-muted mb-0">إجمالي المستخدمين</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="bg-success rounded p-3 me-3">
+                                <i class="fas fa-user-check text-white fa-2x"></i>
+                            </div>
+                            <div>
+                                <h4 class="mb-0">{{ users|selectattr('is_active', 'equalto', 1)|list|length }}</h4>
+                                <p class="text-muted mb-0">المستخدمين النشطين</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="bg-warning rounded p-3 me-3">
+                                <i class="fas fa-user-clock text-white fa-2x"></i>
+                            </div>
+                            <div>
+                                <h4 class="mb-0">{{ users|selectattr('is_active', 'equalto', 0)|list|length }}</h4>
+                                <p class="text-muted mb-0">المستخدمين المعطلين</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="bg-info rounded p-3 me-3">
+                                <i class="fas fa-user-cog text-white fa-2x"></i>
+                            </div>
+                            <div>
+                                <h4 class="mb-0">{{ users|selectattr('role', 'equalto', 'مدير النظام')|list|length }}</h4>
+                                <p class="text-muted mb-0">المدراء</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Search and Filter -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <div class="search-box">
+                            <input type="text" class="form-control" id="searchInput" placeholder="ابحث باسم المستخدم أو اسم المستخدم أو الدور...">
+                            <i class="fas fa-search"></i>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <select class="form-select" id="roleFilter">
+                            <option value="">جميع الأدوار</option>
+                            <option value="مدير النظام">مدير النظام</option>
+                            <option value="مسؤول النظام">مسؤول النظام</option>
+                            <option value="المناوب بالعمليات">المناوب بالعمليات</option>
+                            <option value="المناوب بالمحروقات">المناوب بالمحروقات</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <select class="form-select" id="statusFilter">
+                            <option value="">جميع الحالات</option>
+                            <option value="1">نشط</option>
+                            <option value="0">معطل</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Users Table -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="fas fa-list me-2"></i> قائمة المستخدمين</h6>
+                <span class="badge bg-primary">عدد المستخدمين: {{ users|length }}</span>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="usersTable">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>المستخدم</th>
+                                <th>اسم المستخدم</th>
+                                <th>الدور</th>
+                                <th>الوحدة</th>
+                                <th>الحالة</th>
+                                <th>تاريخ الإضافة</th>
+                                <th>الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="user-avatar me-3">
+                                            {{ user.name[0] if user.name else 'U' }}
+                                        </div>
+                                        <div>
+                                            <h6 class="mb-0">{{ user.name }}</h6>
+                                            <small class="text-muted">{{ user.email if user.email else 'لا يوجد بريد' }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <code>{{ user.username }}</code>
+                                </td>
+                                <td>
+                                    {% if user.role == 'مدير النظام' %}
+                                        <span class="badge-role badge-admin">{{ user.role }}</span>
+                                    {% elif user.role == 'مسؤول النظام' %}
+                                        <span class="badge-role badge-system">{{ user.role }}</span>
+                                    {% elif user.role == 'المناوب بالعمليات' %}
+                                        <span class="badge-role badge-operations">{{ user.role }}</span>
+                                    {% elif user.role == 'المناوب بالمحروقات' %}
+                                        <span class="badge-role badge-fuel">{{ user.role }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ user.role }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if user.unit_name %}
+                                        <span class="badge bg-info">{{ user.unit_name }}</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if user.is_active %}
+                                        <span class="badge bg-success">
+                                            <span class="status-dot status-active"></span> نشط
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-danger">
+                                            <span class="status-dot status-inactive"></span> معطل
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ user.created_at[:10] if user.created_at else '-' }}
+                                </td>
+                                <td>
+                                    <div class="d-flex">
+                                        <button class="btn btn-sm btn-outline-primary btn-action" 
+                                                onclick="editUser({{ user.id }})"
+                                                title="تعديل">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        
+                                        <button class="btn btn-sm btn-outline-warning btn-action" 
+                                                onclick="showChangePasswordModal({{ user.id }}, '{{ user.username }}')"
+                                                title="تغيير كلمة المرور">
+                                            <i class="fas fa-key"></i>
+                                        </button>
+                                        
+                                        {% if user.is_active %}
+                                            <button class="btn btn-sm btn-outline-danger btn-action" 
+                                                    onclick="toggleUserStatus({{ user.id }}, 0)"
+                                                    title="تعطيل المستخدم">
+                                                <i class="fas fa-user-slash"></i>
+                                            </button>
+                                        {% else %}
+                                            <button class="btn btn-sm btn-outline-success btn-action" 
+                                                    onclick="toggleUserStatus({{ user.id }}, 1)"
+                                                    title="تفعيل المستخدم">
+                                                <i class="fas fa-user-check"></i>
+                                            </button>
+                                        {% endif %}
+                                        
+                                        {% if user.id != session.user_id %}
+                                            <button class="btn btn-sm btn-outline-secondary btn-action" 
+                                                    onclick="deleteUser({{ user.id }}, '{{ user.name }}')"
+                                                    title="حذف المستخدم">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="8" class="text-center py-4">
+                                    <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                                    <h5 class="text-muted">لا يوجد مستخدمين</h5>
+                                    <p class="text-muted">اضغط على زر "إضافة مستخدم جديد" لبدء إضافة المستخدمين</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Add User Modal -->
+    <div class="modal fade" id="addUserModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-user-plus me-2"></i> إضافة مستخدم جديد
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addUserForm">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label required">اسم المستخدم الكامل</label>
+                                <input type="text" class="form-control" name="name" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label required">اسم المستخدم (للتسجيل)</label>
+                                <input type="text" class="form-control" name="username" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label required">كلمة المرور</label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" name="password" id="newPassword" required>
+                                    <button type="button" class="btn btn-outline-secondary" onclick="togglePassword('newPassword')">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                                <small class="text-muted">يجب أن تكون كلمة المرور 6 أحرف على الأقل</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label required">تأكيد كلمة المرور</label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" name="confirm_password" id="confirmPassword" required>
+                                    <button type="button" class="btn btn-outline-secondary" onclick="togglePassword('confirmPassword')">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label required">الدور</label>
+                                <select class="form-select" name="role" required>
+                                    <option value="">اختر الدور...</option>
+                                    <option value="مدير النظام">مدير النظام</option>
+                                    <option value="مسؤول النظام">مسؤول النظام</option>
+                                    <option value="المناوب بالعمليات">المناوب بالعمليات</option>
+                                    <option value="المناوب بالمحروقات">المناوب بالمحروقات</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">الوحدة</label>
+                                <select class="form-select" name="unit_id">
+                                    <option value="">بدون وحدة</option>
+                                    {% for unit in units %}
+                                        <option value="{{ unit.id }}">{{ unit.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="button" class="btn btn-primary" onclick="addUser()">
+                        <i class="fas fa-save me-2"></i> حفظ المستخدم
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Change Password Modal -->
+    <div class="modal fade" id="changePasswordModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-key me-2"></i> تغيير كلمة المرور
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="changePasswordForm">
+                        <input type="hidden" id="passwordUserId">
+                        <div class="mb-3">
+                            <label class="form-label">اسم المستخدم</label>
+                            <input type="text" class="form-control" id="passwordUsername" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label required">كلمة المرور الجديدة</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="newPasswordField" required>
+                                <button type="button" class="btn btn-outline-secondary" onclick="togglePassword('newPasswordField')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                            <small class="text-muted">يجب أن تكون كلمة المرور 6 أحرف على الأقل</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label required">تأكيد كلمة المرور</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="confirmPasswordField" required>
+                                <button type="button" class="btn btn-outline-secondary" onclick="togglePassword('confirmPasswordField')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="button" class="btn btn-primary" onclick="changePassword()">
+                        <i class="fas fa-key me-2"></i> تغيير كلمة المرور
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Edit User Modal -->
+    <div class="modal fade" id="editUserModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-edit me-2"></i> تعديل بيانات المستخدم
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editUserForm">
+                        <input type="hidden" id="editUserId">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label required">اسم المستخدم الكامل</label>
+                                <input type="text" class="form-control" id="editName" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label required">اسم المستخدم (للتسجيل)</label>
+                                <input type="text" class="form-control" id="editUsername" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label required">الدور</label>
+                                <select class="form-select" id="editRole" required>
+                                    <option value="">اختر الدور...</option>
+                                    <option value="مدير النظام">مدير النظام</option>
+                                    <option value="مسؤول النظام">مسؤول النظام</option>
+                                    <option value="المناوب بالعمليات">المناوب بالعمليات</option>
+                                    <option value="المناوب بالمحروقات">المناوب بالمحروقات</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">الوحدة</label>
+                                <select class="form-select" id="editUnitId">
+                                    <option value="">بدون وحدة</option>
+                                    {% for unit in units %}
+                                        <option value="{{ unit.id }}">{{ unit.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">حالة الحساب</label>
+                                <select class="form-select" id="editIsActive">
+                                    <option value="1">نشط</option>
+                                    <option value="0">معطل</option>
+                                </select>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="button" class="btn btn-primary" onclick="updateUser()">
+                        <i class="fas fa-save me-2"></i> حفظ التغييرات
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    <script>
+        // دالة لعرض/إخفاء كلمة المرور
+        function togglePassword(fieldId) {
+            const field = document.getElementById(fieldId);
+            const type = field.getAttribute('type') === 'password' ? 'text' : 'password';
+            field.setAttribute('type', type);
+        }
+        
+        // فلترة الجدول
+        function filterTable() {
+            const searchText = document.getElementById('searchInput').value.toLowerCase();
+            const roleFilter = document.getElementById('roleFilter').value;
+            const statusFilter = document.getElementById('statusFilter').value;
+            
+            const rows = document.querySelectorAll('#usersTable tbody tr');
+            
+            rows.forEach(row => {
+                const name = row.cells[1].textContent.toLowerCase();
+                const username = row.cells[2].textContent.toLowerCase();
+                const role = row.cells[3].textContent.trim();
+                const statusBadge = row.cells[5].querySelector('.badge');
+                const status = statusBadge ? (statusBadge.textContent.includes('نشط') ? '1' : '0') : '';
+                
+                const matchesSearch = name.includes(searchText) || username.includes(searchText);
+                const matchesRole = !roleFilter || role === roleFilter;
+                const matchesStatus = !statusFilter || status === statusFilter;
+                
+                row.style.display = matchesSearch && matchesRole && matchesStatus ? '' : 'none';
+            });
+        }
+        
+        // إضافة مستخدم جديد
+        function addUser() {
+            const form = document.getElementById('addUserForm');
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+            
+            // التحقق من كلمة المرور
+            if (data.password !== data.confirm_password) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'خطأ',
+                    text: 'كلمتا المرور غير متطابقتين'
+                });
+                return;
+            }
+            
+            if (data.password.length < 6) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'خطأ',
+                    text: 'كلمة المرور يجب أن تكون 6 أحرف على الأقل'
+                });
+                return;
+            }
+            
+            // إرسال البيانات
+            fetch('/api/admin/users', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'تم!',
+                        text: result.message
+                    }).then(() => {
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'خطأ',
+                        text: result.message
+                    });
+                }
+            })
+            .catch(error => {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'خطأ',
+                    text: 'حدث خطأ أثناء إضافة المستخدم'
+                });
+            });
+        }
+        
+        // عرض نافذة تغيير كلمة المرور
+        function showChangePasswordModal(userId, username) {
+            document.getElementById('passwordUserId').value = userId;
+            document.getElementById('passwordUsername').value = username;
+            document.getElementById('newPasswordField').value = '';
+            document.getElementById('confirmPasswordField').value = '';
+            
+            const modal = new bootstrap.Modal(document.getElementById('changePasswordModal'));
+            modal.show();
+        }
+        
+        // تغيير كلمة المرور
+        function changePassword() {
+            const userId = document.getElementById('passwordUserId').value;
+            const newPassword = document.getElementById('newPasswordField').value;
+            const confirmPassword = document.getElementById('confirmPasswordField').value;
+            
+            // التحقق من كلمة المرور
+            if (newPassword !== confirmPassword) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'خطأ',
+                    text: 'كلمتا المرور غير متطابقتين'
+                });
+                return;
+            }
+            
+            if (newPassword.length < 6) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'خطأ',
+                    text: 'كلمة المرور يجب أن تكون 6 أحرف على الأقل'
+                });
+                return;
+            }
+            
+            // إرسال البيانات
+            fetch(`/api/admin/users/${userId}/change-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    new_password: newPassword
+                })
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'تم!',
+                        text: result.message
+                    }).then(() => {
+                        document.getElementById('changePasswordModal').querySelector('.btn-close').click();
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'خطأ',
+                        text: result.message
+                    });
+                }
+            })
+            .catch(error => {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'خطأ',
+                    text: 'حدث خطأ أثناء تغيير كلمة المرور'
+                });
+            });
+        }
+        
+        // تعديل بيانات المستخدم
+        function editUser(userId) {
+            // هنا يمكنك جلب بيانات المستخدم من الخادم
+            fetch(`/api/admin/users/${userId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const user = data.user;
+                        document.getElementById('editUserId').value = user.id;
+                        document.getElementById('editName').value = user.name;
+                        document.getElementById('editUsername').value = user.username;
+                        document.getElementById('editRole').value = user.role;
+                        document.getElementById('editUnitId').value = user.unit_id || '';
+                        document.getElementById('editIsActive').value = user.is_active ? '1' : '0';
+                        
+                        const modal = new bootstrap.Modal(document.getElementById('editUserModal'));
+                        modal.show();
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'خطأ',
+                            text: 'لا يمكن تحميل بيانات المستخدم'
+                        });
+                    }
+                });
+        }
+        
+        // تحديث بيانات المستخدم
+        function updateUser() {
+            const userId = document.getElementById('editUserId').value;
+            const data = {
+                name: document.getElementById('editName').value,
+                username: document.getElementById('editUsername').value,
+                role: document.getElementById('editRole').value,
+                unit_id: document.getElementById('editUnitId').value || null,
+                is_active: document.getElementById('editIsActive').value
+            };
+            
+            fetch(`/api/admin/users/${userId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'تم!',
+                        text: result.message
+                    }).then(() => {
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'خطأ',
+                        text: result.message
+                    });
+                }
+            });
+        }
+        
+        // تغيير حالة المستخدم
+        function toggleUserStatus(userId, status) {
+            const action = status ? 'تفعيل' : 'تعطيل';
+            
+            Swal.fire({
+                title: 'هل أنت متأكد؟',
+                text: `هل تريد ${action} هذا المستخدم؟`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: `نعم، ${action}`,
+                cancelButtonText: 'إلغاء'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    fetch(`/api/admin/users/${userId}/toggle-status`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ is_active: status })
+                    })
+                    .then(response => response.json())
+                    .then(result => {
+                        if (result.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'تم!',
+                                text: result.message
+                            }).then(() => {
+                                location.reload();
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'خطأ',
+                                text: result.message
+                            });
+                        }
+                    });
+                }
+            });
+        }
+        
+        // حذف المستخدم
+        function deleteUser(userId, userName) {
+            Swal.fire({
+                title: 'هل أنت متأكد؟',
+                text: `سيتم حذف المستخدم "${userName}" نهائياً. لا يمكن التراجع عن هذا الإجراء.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'نعم، احذف',
+                cancelButtonText: 'إلغاء',
+                confirmButtonColor: '#dc3545'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    fetch(`/api/admin/users/${userId}`, {
+                        method: 'DELETE'
+                    })
+                    .then(response => response.json())
+                    .then(result => {
+                        if (result.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'تم الحذف!',
+                                text: result.message
+                            }).then(() => {
+                                location.reload();
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'خطأ',
+                                text: result.message
+                            });
+                        }
+                    });
+                }
+            });
+        }
+        
+        // تفعيل الفلترة
+        document.getElementById('searchInput').addEventListener('keyup', filterTable);
+        document.getElementById('roleFilter').addEventListener('change', filterTable);
+        document.getElementById('statusFilter').addEventListener('change', filterTable);
+        
+        // رسالة ترحيبية عند تحميل الصفحة
+        document.addEventListener('DOMContentLoaded', function() {
+            const totalUsers = {{ users|length }};
+            if (totalUsers === 0) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'مرحباً!',
+                    text: 'لا يوجد مستخدمين بعد. يمكنك البدء بإضافة مستخدمين جدد للنظام.',
+                    confirmButtonText: 'إضافة مستخدم جديد'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        const modal = new bootstrap.Modal(document.getElementById('addUserModal'));
+                        modal.show();
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
