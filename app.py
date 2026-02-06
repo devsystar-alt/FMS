@@ -1747,6 +1747,330 @@ def delete_operation(operation_id):
             'message': f'خطأ: {str(e)}'
         }), 500
 
+
+# أضف هذه الدوال في ملف app.py في قسم API Routes
+
+@app.route('/api/admin/users', methods=['GET', 'POST'])
+@login_required
+@role_required('مدير النظام')
+def admin_users_api():
+    """API لإدارة المستخدمين"""
+    try:
+        if request.method == 'POST':
+            # إضافة مستخدم جديد
+            data = request.get_json()
+
+            # التحقق من البيانات
+            required_fields = ['name', 'username', 'password', 'role']
+            for field in required_fields:
+                if field not in data:
+                    return jsonify({'success': False, 'message': f'الحقل {field} مطلوب'}), 400
+
+            conn = get_db_connection()
+
+            # التحقق من عدم تكرار اسم المستخدم
+            existing_user = conn.execute(
+                'SELECT id FROM users WHERE username = ?',
+                (data['username'],)
+            ).fetchone()
+
+            if existing_user:
+                conn.close()
+                return jsonify({'success': False, 'message': 'اسم المستخدم موجود مسبقاً'}), 400
+
+            # تشفير كلمة المرور
+            hashed_password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
+
+            # إدخال المستخدم الجديد
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO users (name, username, password, role, unit_id, is_active)
+                VALUES (?, ?, ?, ?, ?, 1)
+            ''', (
+                data['name'],
+                data['username'],
+                hashed_password,
+                data['role'],
+                data.get('unit_id') or None
+            ))
+
+            user_id = cursor.lastrowid
+
+            # تسجيل النشاط
+            log_activity(
+                session['user_id'],
+                'إضافة مستخدم',
+                'users',
+                user_id,
+                f'إضافة مستخدم جديد: {data["name"]} ({data["role"]})'
+            )
+
+            conn.commit()
+            conn.close()
+
+            return jsonify({
+                'success': True,
+                'message': 'تم إضافة المستخدم بنجاح'
+            })
+
+        else:
+            # الحصول على جميع المستخدمين
+            conn = get_db_connection()
+            users = conn.execute('''
+                SELECT u.*, un.name as unit_name 
+                FROM users u 
+                LEFT JOIN units un ON u.unit_id = un.id 
+                ORDER BY u.created_at DESC
+            ''').fetchall()
+            conn.close()
+
+            return jsonify({
+                'success': True,
+                'users': [dict(user) for user in users]
+            })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'خطأ في إدارة المستخدمين: {str(e)}'
+        }), 500
+
+
+@app.route('/api/admin/users/<int:user_id>', methods=['GET', 'PUT', 'DELETE'])
+@login_required
+@role_required('مدير النظام')
+def admin_user_api(user_id):
+    """API لإدارة مستخدم محدد"""
+    try:
+        conn = get_db_connection()
+
+        if request.method == 'GET':
+            # الحصول على بيانات مستخدم
+            user = conn.execute('''
+                SELECT u.*, un.name as unit_name 
+                FROM users u 
+                LEFT JOIN units un ON u.unit_id = un.id 
+                WHERE u.id = ?
+            ''', (user_id,)).fetchone()
+
+            conn.close()
+
+            if user:
+                return jsonify({
+                    'success': True,
+                    'user': dict(user)
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': 'المستخدم غير موجود'
+                }), 404
+
+        elif request.method == 'PUT':
+            # تحديث بيانات مستخدم
+            data = request.get_json()
+
+            # التحقق من البيانات
+            required_fields = ['name', 'username', 'role']
+            for field in required_fields:
+                if field not in data:
+                    conn.close()
+                    return jsonify({'success': False, 'message': f'الحقل {field} مطلوب'}), 400
+
+            # التحقق من عدم تكرار اسم المستخدم (باستثناء نفس المستخدم)
+            existing_user = conn.execute(
+                'SELECT id FROM users WHERE username = ? AND id != ?',
+                (data['username'], user_id)
+            ).fetchone()
+
+            if existing_user:
+                conn.close()
+                return jsonify({'success': False, 'message': 'اسم المستخدم موجود مسبقاً'}), 400
+
+            # تحديث البيانات
+            cursor = conn.cursor()
+            cursor.execute('''
+                UPDATE users 
+                SET name = ?, username = ?, role = ?, unit_id = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            ''', (
+                data['name'],
+                data['username'],
+                data['role'],
+                data.get('unit_id') or None,
+                data.get('is_active', 1),
+                user_id
+            ))
+
+            # تسجيل النشاط
+            log_activity(
+                session['user_id'],
+                'تعديل مستخدم',
+                'users',
+                user_id,
+                f'تعديل بيانات المستخدم ID: {user_id}'
+            )
+
+            conn.commit()
+            conn.close()
+
+            return jsonify({
+                'success': True,
+                'message': 'تم تحديث بيانات المستخدم بنجاح'
+            })
+
+        elif request.method == 'DELETE':
+            # حذف مستخدم
+            # لا يمكن حذف المستخدم الحالي
+            if user_id == session['user_id']:
+                conn.close()
+                return jsonify({
+                    'success': False,
+                    'message': 'لا يمكن حذف حسابك الخاص'
+                }), 400
+
+            # الحصول على بيانات المستخدم قبل الحذف
+            user = conn.execute('SELECT name FROM users WHERE id = ?', (user_id,)).fetchone()
+
+            if not user:
+                conn.close()
+                return jsonify({'success': False, 'message': 'المستخدم غير موجود'}), 404
+
+            # حذف المستخدم
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM users WHERE id = ?', (user_id,))
+
+            # تسجيل النشاط
+            log_activity(
+                session['user_id'],
+                'حذف مستخدم',
+                'users',
+                user_id,
+                f'حذف المستخدم: {user["name"]}'
+            )
+
+            conn.commit()
+            conn.close()
+
+            return jsonify({
+                'success': True,
+                'message': 'تم حذف المستخدم بنجاح'
+            })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'خطأ في إدارة المستخدم: {str(e)}'
+        }), 500
+
+
+@app.route('/api/admin/users/<int:user_id>/change-password', methods=['POST'])
+@login_required
+@role_required('مدير النظام')
+def admin_change_password_api(user_id):
+    """API لتغيير كلمة مرور مستخدم"""
+    try:
+        data = request.get_json()
+
+        if 'new_password' not in data:
+            return jsonify({'success': False, 'message': 'كلمة المرور الجديدة مطلوبة'}), 400
+
+        if len(data['new_password']) < 6:
+            return jsonify({'success': False, 'message': 'كلمة المرور يجب أن تكون 6 أحرف على الأقل'}), 400
+
+        conn = get_db_connection()
+
+        # تشفير كلمة المرور الجديدة
+        hashed_password = bcrypt.generate_password_hash(data['new_password']).decode('utf-8')
+
+        # تحديث كلمة المرور
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE users 
+            SET password = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ''', (hashed_password, user_id))
+
+        # تسجيل النشاط
+        log_activity(
+            session['user_id'],
+            'تغيير كلمة المرور',
+            'users',
+            user_id,
+            'تغيير كلمة مرور المستخدم'
+        )
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'message': 'تم تغيير كلمة المرور بنجاح'
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'خطأ في تغيير كلمة المرور: {str(e)}'
+        }), 500
+
+
+@app.route('/api/admin/users/<int:user_id>/toggle-status', methods=['POST'])
+@login_required
+@role_required('مدير النظام')
+def admin_toggle_status_api(user_id):
+    """API لتغيير حالة المستخدم"""
+    try:
+        data = request.get_json()
+
+        if 'is_active' not in data:
+            return jsonify({'success': False, 'message': 'حالة المستخدم مطلوبة'}), 400
+
+        conn = get_db_connection()
+
+        # لا يمكن تعطيل المستخدم الحالي
+        if user_id == session['user_id'] and data['is_active'] == 0:
+            conn.close()
+            return jsonify({
+                'success': False,
+                'message': 'لا يمكن تعطيل حسابك الخاص'
+            }), 400
+
+        # تحديث حالة المستخدم
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE users 
+            SET is_active = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ''', (data['is_active'], user_id))
+
+        # تسجيل النشاط
+        action = 'تفعيل مستخدم' if data['is_active'] else 'تعطيل مستخدم'
+        log_activity(
+            session['user_id'],
+            action,
+            'users',
+            user_id,
+            f'{action} ID: {user_id}'
+        )
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'message': f'تم {"تفعيل" if data["is_active"] else "تعطيل"} المستخدم بنجاح'
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'خطأ في تغيير حالة المستخدم: {str(e)}'
+        }), 500
+
+
+
+
 # ============================================
 # تشغيل التطبيق
 # ============================================
