@@ -1,0 +1,515 @@
+{% extends "layout.html" %}
+
+{% block title %}الرئيسية{% endblock %}
+
+{% block content %}
+<div class="home-index">
+    <!-- خلفية متدرجة -->
+    <div class="background-gradient"></div>
+
+    <!-- المحتوى الرئيسي -->
+    <div class="index-container">
+        <!-- الشعار والترحيب -->
+        <div class="index-header">
+            <div class="logo-wrapper">
+                <div class="logo-circle">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <h1 class="system-title">نظام الإدارة المتكامل</h1>
+                <p class="system-description">منصة إدارية متقدمة لأتمتة العمليات والتحكم الذكي</p>
+            </div>
+        </div>
+
+        <!-- رسالة الترحيب -->
+        <div class="welcome-message">
+            <div class="message-content">
+                <h2 class="greeting-text">
+                    <span class="welcome-word">مرحباً</span>
+                    <span class="welcome-you">بك</span>
+                </h2>
+                <p class="welcome-subtitle">في منصة الإدارة الذكية التي تقدم لك تجربة فريدة وسلسة</p>
+
+                <div class="access-note">
+                    <i class="fas fa-lock access-icon"></i>
+                    <span>يرجى تسجيل الدخول للوصول إلى النظام</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- زر الدخول الرئيسي -->
+        <div class="login-action">
+            <a href="{{ url_for('login') }}" class="main-login-btn">
+                <div class="btn-content">
+                    <span class="btn-text">بدء الاستخدام الآن</span>
+                    <span class="btn-arrow">
+                        <i class="fas fa-arrow-left"></i>
+                    </span>
+                </div>
+                <div class="btn-hover-effect"></div>
+            </a>
+
+            <p class="login-hint">
+                <i class="fas fa-info-circle"></i>
+                اضغط على الزر للانتقال إلى صفحة تسجيل الدخول
+            </p>
+        </div>
+    </div>
+
+    <!-- معلومات الاتصال الصغيرة -->
+    <div class="contact-footer">
+        <div class="contact-content">
+            <div class="contact-line">
+                <i class="fas fa-headset"></i>
+                <span></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* هيكل الصفحة */
+.home-index {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+    padding: 20px;
+}
+
+/* الخلفية المتدرجة */
+.background-gradient {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background:
+        radial-gradient(circle at 20% 30%, rgba(41, 128, 185, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(155, 89, 182, 0.08) 0%, transparent 50%);
+    z-index: 1;
+}
+
+/* الحاوية الرئيسية */
+.index-container {
+    position: relative;
+    z-index: 2;
+    max-width: 600px;
+    width: 100%;
+    text-align: center;
+    animation: fadeInUp 0.8s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* الشعار */
+.index-header {
+    margin-bottom: 40px;
+}
+
+.logo-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.logo-circle {
+    width: 100px;
+    height: 100px;
+    background: linear-gradient(135deg, #3498db, #9b59b6);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    color: white;
+    box-shadow: 0 15px 35px rgba(52, 152, 219, 0.15);
+    animation: logoFloat 3s ease-in-out infinite;
+}
+
+@keyframes logoFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+.system-title {
+    font-size: 2.2rem;
+    color: #2c3e50;
+    margin: 0;
+    font-weight: 700;
+    background: linear-gradient(45deg, #2c3e50, #3498db);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    line-height: 1.3;
+}
+
+.system-description {
+    color: #7f8c8d;
+    font-size: 1.1rem;
+    margin: 10px 0 0;
+    max-width: 400px;
+    line-height: 1.5;
+}
+
+/* رسالة الترحيب */
+.welcome-message {
+    background: white;
+    border-radius: 20px;
+    padding: 40px 30px;
+    margin-bottom: 40px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    position: relative;
+    overflow: hidden;
+}
+
+.welcome-message::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #3498db, #9b59b6);
+    border-radius: 4px 4px 0 0;
+}
+
+.message-content {
+    position: relative;
+    z-index: 1;
+}
+
+.greeting-text {
+    font-size: 2.8rem;
+    color: #2c3e50;
+    margin: 0 0 15px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.welcome-word {
+    font-weight: 300;
+    color: #3498db;
+}
+
+.welcome-you {
+    font-weight: 700;
+    color: #9b59b6;
+    position: relative;
+}
+
+.welcome-you::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, #3498db, #9b59b6);
+    border-radius: 2px;
+}
+
+.welcome-subtitle {
+    color: #666;
+    font-size: 1.1rem;
+    margin: 0 0 25px;
+    line-height: 1.6;
+}
+
+.access-note {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    background: #f8f9fa;
+    padding: 12px 25px;
+    border-radius: 50px;
+    color: #666;
+    font-size: 0.95rem;
+    border: 1px solid #e9ecef;
+    transition: all 0.3s ease;
+}
+
+.access-note:hover {
+    background: #edf7ff;
+    border-color: #cce5ff;
+    transform: translateY(-2px);
+}
+
+.access-icon {
+    color: #3498db;
+    animation: lockPulse 2s ease-in-out infinite;
+}
+
+@keyframes lockPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+/* زر الدخول */
+.login-action {
+    margin-bottom: 50px;
+}
+
+.main-login-btn {
+    display: inline-block;
+    background: linear-gradient(135deg, #3498db 0%, #9b59b6 100%);
+    color: white;
+    text-decoration: none;
+    padding: 0;
+    border-radius: 15px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 15px 35px rgba(52, 152, 219, 0.2);
+    margin-bottom: 15px;
+}
+
+.main-login-btn:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 45px rgba(52, 152, 219, 0.3);
+}
+
+.main-login-btn:hover .btn-content {
+    padding: 20px 55px;
+}
+
+.btn-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    padding: 20px 50px;
+    position: relative;
+    z-index: 2;
+    transition: padding 0.3s ease;
+}
+
+.btn-text {
+    font-size: 1.3rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.btn-arrow {
+    transform: rotate(180deg);
+    transition: transform 0.3s ease;
+}
+
+.main-login-btn:hover .btn-arrow {
+    transform: rotate(180deg) translateX(-5px);
+}
+
+.btn-hover-effect {
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: 0.6s;
+}
+
+.main-login-btn:hover .btn-hover-effect {
+    left: 100%;
+}
+
+.login-hint {
+    color: #7f8c8d;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 10px 0 0;
+}
+
+.login-hint i {
+    color: #3498db;
+}
+
+/* تذييل الاتصال */
+.contact-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+    padding: 15px 20px;
+    z-index: 100;
+}
+
+.contact-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.contact-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: #666;
+    font-size: 0.85rem;
+    padding: 8px 20px;
+    background: #f8f9fa;
+    border-radius: 20px;
+    border: 1px solid #e9ecef;
+}
+
+.contact-line i {
+    color: #3498db;
+}
+
+/* تحسينات للشاشات الصغيرة */
+@media (max-width: 768px) {
+    .home-index {
+        padding: 15px;
+    }
+
+    .system-title {
+        font-size: 1.8rem;
+    }
+
+    .greeting-text {
+        font-size: 2.2rem;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .welcome-message {
+        padding: 30px 20px;
+    }
+
+    .main-login-btn {
+        width: 100%;
+    }
+
+    .btn-content {
+        padding: 18px 30px;
+    }
+
+    .btn-text {
+        font-size: 1.1rem;
+    }
+
+    .contact-line {
+        font-size: 0.8rem;
+        padding: 6px 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    .logo-circle {
+        width: 80px;
+        height: 80px;
+        font-size: 2rem;
+    }
+
+    .system-title {
+        font-size: 1.6rem;
+    }
+
+    .system-description {
+        font-size: 1rem;
+    }
+
+    .greeting-text {
+        font-size: 1.8rem;
+    }
+
+    .welcome-subtitle {
+        font-size: 1rem;
+    }
+
+    .access-note {
+        padding: 10px 20px;
+        font-size: 0.9rem;
+    }
+
+    .btn-text {
+        font-size: 1rem;
+    }
+}
+
+/* تأثيرات إضافية */
+.main-login-btn:active {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(52, 152, 219, 0.2);
+}
+
+.logo-circle:hover {
+    animation: logoSpin 1s ease-in-out;
+}
+
+@keyframes logoSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* إضافة ظل خفيف للنصوص لتحسين القراءة */
+.system-title,
+.greeting-text,
+.welcome-subtitle {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // تأثير عند تحميل الصفحة
+    const container = document.querySelector('.index-container');
+    container.style.opacity = '0';
+    container.style.transform = 'translateY(20px)';
+
+    setTimeout(() => {
+        container.style.transition = 'all 0.8s ease-out';
+        container.style.opacity = '1';
+        container.style.transform = 'translateY(0)';
+    }, 100);
+
+    // تأثير عند التمرير
+    window.addEventListener('scroll', function() {
+        const scrolled = window.pageYOffset;
+        const rate = scrolled * -0.2;
+        document.querySelector('.background-gradient').style.transform = `translateY(${rate}px)`;
+    });
+
+    // تأثيرات الأزرار
+    const loginBtn = document.querySelector('.main-login-btn');
+    loginBtn.addEventListener('mouseenter', function() {
+        this.style.transform = 'translateY(-5px) scale(1.02)';
+    });
+
+    loginBtn.addEventListener('mouseleave', function() {
+        this.style.transform = 'translateY(-5px) scale(1)';
+    });
+
+    loginBtn.addEventListener('mousedown', function() {
+        this.style.transform = 'translateY(-3px) scale(0.98)';
+    });
+
+    loginBtn.addEventListener('mouseup', function() {
+        this.style.transform = 'translateY(-5px) scale(1.02)';
+    });
+});
+</script>
+{% endblock %}
